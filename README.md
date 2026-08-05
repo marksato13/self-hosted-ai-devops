@@ -27,21 +27,29 @@ Sin nube. Sin abrir puertos en el router. Sin prender la PC.
 ```mermaid
 flowchart TD
     U["📱 Usuario<br/>(Telegram)"] --> OC["🧠 OpenClaw<br/>orquestador · Docker"]
-    OC --> P["Agente Planificador<br/>Codex CLI · perfil openai<br/>GPT-5.1"]
-    P --> B["Agente Backend<br/>perfil deepseek<br/>DeepSeek V4"]
-    P --> T["Agente de Tests<br/>perfil qwen<br/>Qwen3.5-coder"]
-    P --> D["Agente de Docs<br/>perfil glm<br/>GLM-4.5-Air"]
-    B --> R["Agente Revisor<br/>perfil openai<br/>GPT-5.1"]
+    OC --> P["Agente Planificador<br/>perfil planner · GPT-5.1"]
+    P --> B["Agente Backend<br/>perfil backend · DeepSeek V4<br/><i>worktree propio</i>"]
+    P --> T["Agente de Tests<br/>perfil tester · Qwen3.5-coder<br/><i>worktree propio</i>"]
+    P --> D["Agente de Docs<br/>perfil docs · GLM-4.5-Air<br/><i>worktree propio</i>"]
+    B --> R["Agente Revisor<br/>perfil reviewer · GPT-5.1"]
     T --> R
     D --> R
-    R -->|tests fallan| P
-    R -->|todo ok| PR["📦 1 solo Pull Request"]
+    R -->|falla algo| P
+    R -->|todo ok| PR["📦 1 PR en borrador"]
     PR --> OC
     OC -->|link + resumen| U
     U -->|aprueba| M["merge a main"]
+
+    B -.-> LL["⚙️ LiteLLM<br/>gateway · presupuestos"]
+    T -.-> LL
+    D -.-> LL
+    P -.-> LL
+    R -.-> LL
 ```
 
-Los tres agentes del medio trabajan **en paralelo, cada uno en su propia rama**. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
+Los tres agentes del medio trabajan **en paralelo, cada uno en su propio git worktree y su propia rama**. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
+
+Todas las llamadas a modelos pasan por **LiteLLM**, que traduce entre la Responses API que habla Codex y la Chat Completions que hablan DeepSeek, Qwen y GLM — y de paso aplica un presupuesto por agente.
 
 Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 
@@ -54,21 +62,26 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 | Hipervisor | VMware ESXi 8.0 U3e (gratuito) | Hardware propio, sin costo de nube |
 | Sistema operativo | **Ubuntu Server 24.04 LTS** | VM headless — [por qué Server y no Desktop](docs/decisiones.md#adr-006--ubuntu-server-y-no-ubuntu-desktop) |
 | Orquestador | OpenClaw (Docker) | Escucha Telegram, reparte tareas |
-| Ejecutor de código | Codex CLI | Único ejecutor, 4 perfiles de modelo |
+| Gateway de modelos | LiteLLM (Docker) | Traduce APIs, aplica presupuestos, registra costos |
+| Ejecutor de código | Codex CLI | Único ejecutor, 5 perfiles de agente |
+| Aislamiento | Git worktrees | Cada agente en su directorio, un solo `.git` |
 | Red remota | Tailscale | SSH desde el celular sin exponer el router |
 | Repositorio | GitHub + PAT de alcance mínimo | Ramas, commits y PRs |
+| Guardarraíles | Gitleaks + pre-commit | Impide que un agente commitee una clave |
 
 ---
 
-## Los cuatro agentes
+## Los cinco agentes
 
-| Agente | Perfil Codex | Modelo | Para qué | Costo |
+| Agente | Perfil | Modelo | Para qué | Costo |
 |---|---|---|---|---|
-| Planificador | `openai` | GPT-5.1 | Divide la tarea en subtareas | Incluido en ChatGPT Plus |
-| Backend | `deepseek` | DeepSeek V4 | Código de aplicación | Barato |
-| Tests | `qwen` | Qwen3.5-coder | Pruebas automatizadas | Barato |
-| Docs | `glm` | GLM-4.5-Air | Documentación | Gratis |
-| Revisor | `openai` | GPT-5.1 | Une ramas, valida, abre el PR | Incluido en ChatGPT Plus |
+| Planificador | `planner` | GPT-5.1 | Divide la tarea en subtareas | Incluido en ChatGPT Plus |
+| Backend | `backend` | DeepSeek V4 | Código de aplicación | Barato |
+| Tests | `tester` | Qwen3.5-coder | Pruebas automatizadas | Barato |
+| Docs | `docs` | GLM-4.5-Air | Documentación | Gratis |
+| Revisor | `reviewer` | GPT-5.1 | Une ramas, valida, abre el PR | Incluido en ChatGPT Plus |
+
+Cada uno tiene su propia clave virtual en LiteLLM con **5 USD de presupuesto**: si uno entra en bucle, quema lo suyo y se detiene sin arrastrar a los demás.
 
 Prompts, límites y responsabilidades de cada uno en **[docs/agentes.md](docs/agentes.md)**.
 Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelos.md)**.
@@ -79,26 +92,28 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
-| [docs/instalacion.md](docs/instalacion.md) | **Paso a paso completo**, de la VM vacía al primer PR |
-| [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo y ramas |
-| [docs/agentes.md](docs/agentes.md) | Perfil, prompt y límites de cada agente |
-| [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y costos |
-| [docs/decisiones.md](docs/decisiones.md) | ADRs: por qué ESXi y no AWS, Server y no Desktop, etc. |
+| [docs/instalacion.md](docs/instalacion.md) | **Paso a paso completo**, 10 fases de la VM vacía a la flota |
+| [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
+| [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
+| [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
+| [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
+| [docs/decisiones.md](docs/decisiones.md) | 14 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
 | [docs/seguridad.md](docs/seguridad.md) | Allowlist de Telegram, secretos, permisos, sandbox |
 | [docs/runbook.md](docs/runbook.md) | Operación diaria, diagnóstico y recuperación |
 | [infra/vm-esxi.md](infra/vm-esxi.md) | Specs y creación de la VM |
+| [AGENTS.md](AGENTS.md) | Reglas del repo que los agentes leen solos |
 | [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md) | Documento de traspaso para retomar el proyecto |
 
 ---
 
 ## Instalación resumida
 
-El detalle está en [docs/instalacion.md](docs/instalacion.md); esto es solo el mapa.
+El detalle son 10 fases en [docs/instalacion.md](docs/instalacion.md); esto es solo el mapa.
 
 ```bash
 # En la VM Ubuntu Server 24.04 LTS
 sudo apt update && sudo apt -y upgrade
-curl -fsSL https://get.docker.com | sh          # Docker
+curl -fsSL https://get.docker.com | sh           # Docker
 curl -fsSL https://tailscale.com/install.sh | sh # Tailscale
 npm i -g @openai/codex                           # Codex CLI
 
@@ -106,7 +121,17 @@ git clone https://github.com/marksato13/self-hosted-ai-devops.git
 cd self-hosted-ai-devops
 cp .env.example .env        # completar con tus claves — NUNCA se commitea
 cp config/codex-config.toml.example ~/.codex/config.toml
-docker compose -f infra/docker-compose.yml up -d
+pre-commit install                                # guardarraíles de secretos
+docker compose -f infra/docker-compose.yml up -d  # postgres + litellm + openclaw
+```
+
+Y el ciclo de una tarea, ya con todo montado:
+
+```bash
+./scripts/nueva-tarea.sh 12        # crea 3 worktrees, uno por agente
+# …los 3 agentes trabajan en paralelo…
+./scripts/integrar.sh 12           # une, verifica y abre 1 PR en borrador
+./scripts/limpiar-worktrees.sh 12  # limpia al aprobar
 ```
 
 ---
@@ -115,13 +140,14 @@ docker compose -f infra/docker-compose.yml up -d
 
 | Fase | Qué se hace | Listo cuando |
 |---|---|---|
-| 1 | Repo, README y documentación | El repo se ve completo en GitHub |
-| 2 | VM Ubuntu Server + Docker + Tailscale | Entras por SSH desde el celular y `docker run hello-world` corre |
-| 3 | Bot de Telegram + OpenClaw | Tu mensaje recibe respuesta; el de otra cuenta se ignora |
-| 4 | Un agente (perfil `openai`) | Desde Telegram logras que abra un PR trivial |
-| 5 | La flota completa | Una tarea genera 3 ramas y **un solo** PR consolidado |
+| 1–4 | VM, Ubuntu Server, Tailscale, Docker | Entrás por SSH desde el celular y `docker run hello-world` corre |
+| 5 | LiteLLM (gateway) | Los 5 modelos responden por un solo endpoint |
+| 6–7 | Bot de Telegram + OpenClaw | Tu mensaje recibe respuesta; el de otra cuenta se ignora |
+| 8 | Codex CLI y los 5 perfiles | Los cinco perfiles responden |
+| 9 | GitHub, gitleaks y primer PR | Desde Telegram logras que abra un PR trivial |
+| 10 | La flota completa | Una tarea genera 3 ramas y **un solo** PR consolidado |
 
-Se considera el proyecto logrado cuando se cumplen las 5 y el gasto mensual en APIs queda bajo el tope definido en [docs/modelos.md](docs/modelos.md#topes-de-gasto).
+Logrado cuando se cumplen las 10 y el gasto mensual queda bajo el tope de [docs/modelos.md](docs/modelos.md#topes-de-gasto).
 
 ---
 

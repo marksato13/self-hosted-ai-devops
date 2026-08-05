@@ -1,0 +1,110 @@
+# ============================================================
+#  LiteLLM — gateway de modelos
+# ============================================================
+#  Resuelve dos problemas de una vez:
+#
+#  1. INCOMPATIBILIDAD DE API. Desde febrero de 2026 Codex CLI
+#     solo habla la Responses API (wire_api = "responses").
+#     DeepSeek, Bailian y Zhipu exponen Chat Completions.
+#     LiteLLM recibe /v1/responses y traduce a /chat/completions.
+#     Sin esto, los perfiles deepseek/qwen/glm NO funcionan.
+#
+#  2. TOPE DE GASTO REAL. El presupuesto se aplica en el gateway,
+#     no en un .env que nadie hace cumplir.
+#
+#  Ver docs/decisiones.md — ADR-010
+#
+#  ⚠️ Los nombres de modelo deben confirmarse en la consola de
+#     cada proveedor. Ver docs/modelos.md
+# ============================================================
+
+model_list:
+
+  # ---------- Planificador y Revisor ----------
+  - model_name: planner
+    litellm_params:
+      model: openai/gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: reviewer
+    litellm_params:
+      model: openai/gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
+
+  # ---------- Backend ----------
+  # El que más tokens consume: por eso va al modelo barato.
+  - model_name: backend
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+
+  # ---------- Tests ----------
+  # Ojo con la región del endpoint de Bailian: el internacional y
+  # el de China continental son distintos y las claves no se cruzan.
+  - model_name: tester
+    litellm_params:
+      model: openai/qwen3.5-coder
+      api_base: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/DASHSCOPE_API_KEY
+
+  # ---------- Docs ----------
+  - model_name: docs
+    litellm_params:
+      model: openai/glm-4.5-air
+      api_base: https://open.bigmodel.cn/api/paas/v4
+      api_key: os.environ/ZHIPU_API_KEY
+
+
+# ============================================================
+#  Enrutamiento y frenos
+# ============================================================
+router_settings:
+  routing_strategy: simple-shuffle
+
+  # Si el modelo barato se cae, el trabajo no se detiene:
+  # cae al planificador, que siempre está disponible.
+  fallbacks:
+    - backend: ["planner"]
+    - tester: ["planner"]
+    - docs: ["planner"]
+
+  # No reintentar en bucle: un agente colgado quema créditos de noche.
+  num_retries: 2
+  request_timeout: 600      # 10 min: una tarea de código puede tardar
+
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+  # Base de datos para claves virtuales, presupuestos y gasto acumulado.
+  # Sin esto, los presupuestos no persisten entre reinicios.
+  database_url: os.environ/DATABASE_URL
+
+
+litellm_settings:
+  # Registra el costo de cada llamada. Es lo que permite responder
+  # "¿cuánto gastó el agente Backend este mes?".
+  success_callback: ["postgres"]
+  failure_callback: ["postgres"]
+  drop_params: true         # tolera parámetros que un proveedor no soporte
+
+  # 🔴 Tope global. Es el freno que SÍ corta, a diferencia de una
+  # variable de entorno que solo el orquestador respeta.
+  max_budget: 20            # USD
+  budget_duration: 30d
+
+
+# ============================================================
+#  Claves virtuales por agente — se crean después de levantar
+#  el proxy, con su propio presupuesto cada una:
+#
+#    curl -X POST http://localhost:4000/key/generate \
+#      -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+#      -H "Content-Type: application/json" \
+#      -d '{"models": ["backend"], "max_budget": 5,
+#           "budget_duration": "30d", "key_alias": "agente-backend"}'
+#
+#  Así, si el agente Backend entra en bucle, quema sus 5 USD y se
+#  detiene solo — sin arrastrar el presupuesto de los demás.
+#  Ver docs/instalacion.md — Fase 7
+# ============================================================

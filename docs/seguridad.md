@@ -41,11 +41,37 @@ El repo es **público**. Un token commiteado queda en el historial de git aunque
 
 **Si una clave se filtra:** revocala en la consola del proveedor. Borrarla del archivo o reescribir el historial **no** sirve: hay que asumir que ya fue leída.
 
-Verificación antes de cada push:
+### El dato que hace esto urgente
+
+Un informe de GitGuardian de marzo de 2026 midió que **los commits asistidos por IA filtran secretos a aproximadamente el doble de la tasa humana.** Claude Code, Cursor y Codex han commiteado credenciales en el último año.
+
+Este proyecto tiene agentes autónomos commiteando sin supervisión, en un repo público, desde una máquina con cinco credenciales. La defensa automática no es opcional:
 
 ```bash
-git diff --cached | grep -iE "(api[_-]?key|token|secret|password|sk-|ghp_)"
+pipx install pre-commit && pre-commit install
 ```
+
+Eso activa [`.pre-commit-config.yaml`](../.pre-commit-config.yaml): gitleaks corre **antes** de que el commit exista, y `no-commit-to-branch` bloquea cualquier commit directo a `main`.
+
+Probá que funciona de verdad:
+
+```bash
+echo 'OPENAI_API_KEY=sk-proj-falsaparaprobar1234567890abcdef' > prueba.txt
+git add prueba.txt && git commit -m "prueba"   # ← debe FALLAR
+rm prueba.txt && git reset
+```
+
+Si el commit pasa, el hook no está instalado.
+
+**Nunca uses `--no-verify` para saltear el hook.** Si es un falso positivo, agregá la excepción en `.gitleaks.toml`.
+
+Tres capas, en orden de utilidad:
+
+| Capa | Herramienta | Cuándo actúa |
+|---|---|---|
+| 1 | Gitleaks en pre-commit | Antes de que el commit se registre ← **la que importa** |
+| 2 | Verificación en `scripts/integrar.sh` | Antes de abrir el PR |
+| 3 | Push protection de GitHub | Del lado del servidor, último recurso |
 
 ---
 

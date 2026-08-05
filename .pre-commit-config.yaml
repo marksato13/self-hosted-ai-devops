@@ -1,0 +1,45 @@
+# ============================================================
+#  Guardarraíles de commit
+# ============================================================
+#  Por qué existe esto: un informe de GitGuardian de marzo de
+#  2026 midió que los commits asistidos por IA filtran secretos
+#  a ~2× la tasa humana. Este repo es PÚBLICO y la máquina tiene
+#  cuatro claves de API y un token de GitHub.
+#
+#  Una vez que un secreto entra al historial de git hay que
+#  asumir que ya fue leído: borrarlo después no alcanza.
+#
+#  Instalación (en la VM y en cualquier máquina que commitee):
+#    pipx install pre-commit    # o: pip install --user pre-commit
+#    pre-commit install
+#
+#  Correr a mano sobre todo el repo:
+#    pre-commit run --all-files
+#
+#  Ver docs/seguridad.md
+# ============================================================
+
+repos:
+
+  # ---------- Capa 1: secretos ----------
+  # La que realmente importa. Corre antes de registrar el commit.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
+  # ---------- Higiene básica ----------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict     # marcadores <<<<<<< sin resolver
+      - id: check-yaml               # docker-compose y litellm-config
+        args: ["--allow-multiple-documents"]
+      - id: check-toml               # plantilla de codex
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: detect-private-key       # segunda red bajo gitleaks
+      - id: no-commit-to-branch      # 🔴 bloquea commits directos a main
+        args: ["--branch", "main"]

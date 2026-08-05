@@ -86,6 +86,24 @@ Solo convendría Desktop si un agente tuviera que manejar un navegador con inter
 
 ---
 
+## 4.1 🔴 Corrección importante tras investigar el ecosistema
+
+**El diseño original de los perfiles de Codex no habría funcionado.** Desde febrero de 2026, Codex CLI solo acepta `wire_api = "responses"`; el valor `"chat"` fue eliminado y los proveedores externos deben hablar la Responses API. DeepSeek, Bailian y Zhipu exponen Chat Completions. Los perfiles `deepseek`, `qwen` y `glm` habrían fallado recién en la fase de instalación de Codex, con toda la infraestructura ya montada.
+
+**Solución: LiteLLM como gateway.** Recibe `/v1/responses` de Codex y traduce a `/chat/completions` de cada proveedor. De paso resuelve el tope de gasto (lo aplica el gateway, no un `.env`), el registro de costo por agente y los *fallbacks* si un proveedor se cae.
+
+Tres piezas más que se incorporaron del ecosistema open source:
+
+| Pieza | De dónde | Qué resuelve |
+|---|---|---|
+| **Git worktrees por agente** | amux, cyrus, claude-squad, Composio | Los 3 agentes en paralelo sin pisarse; el Revisor integra local, sin pasar por GitHub |
+| **`AGENTS.md`** | Estándar Linux Foundation, 60 000+ repos | Codex lo lee solo: las reglas dejan de repetirse en cada prompt |
+| **Gitleaks en pre-commit** | Práctica estándar | Los commits con IA filtran secretos a ~2× la tasa humana (GitGuardian, 03/2026) |
+
+Detalle completo en `docs/proyectos-referencia.md` y ADR-010 a ADR-014 en `docs/decisiones.md`.
+
+---
+
 ## 5. Stack final
 
 - **OpenClaw** — corre en Docker dentro de la VM. Escucha Telegram (token de BotFather) y la app móvil. Decide qué tarea va a qué perfil/modelo.
@@ -191,6 +209,8 @@ Nota de contexto: no había conector de GitHub en el entorno de Cowork usado ini
 ---
 
 ## 11. Plan por fases
+
+> **Nota:** el plan por fases del repo (`docs/instalacion.md`) es más detallado: son **10 fases** con criterio verificable cada una. Lo de abajo es el resumen histórico.
 
 **Fase 1 — Repo (se puede hacer ya, sin la VM)**
 Inicializar el repo, escribir README y docs, primer commit y push.

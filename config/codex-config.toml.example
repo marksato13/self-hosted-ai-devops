@@ -1,104 +1,119 @@
 # ============================================================
 #  Codex CLI — perfiles de la flota
 # ============================================================
-#  ⚠️ PLANTILLA. Los nombres de campo, las base_url y los
-#  nombres de modelo deben confirmarse en la documentación
-#  oficial de Codex CLI y de cada proveedor antes de usarse.
-#  Ver docs/modelos.md
+#  🔴 CAMBIO IMPORTANTE respecto del diseño original:
+#
+#  Desde febrero de 2026 Codex CLI solo acepta
+#  wire_api = "responses". El valor "chat" fue eliminado, y los
+#  proveedores externos deben hablar la Responses API de OpenAI
+#  para conectarse a Codex directamente.
+#
+#  DeepSeek, Bailian y Zhipu exponen Chat Completions, no
+#  Responses. Apuntarles directo NO funciona.
+#
+#  Solución: todo pasa por LiteLLM, que recibe /v1/responses y
+#  traduce a /chat/completions de cada proveedor. Codex ve un
+#  único proveedor; LiteLLM reparte por detrás y de paso aplica
+#  los topes de gasto.
+#
+#  Ver docs/decisiones.md — ADR-010
+#  Ver infra/litellm-config.yaml
+# ============================================================
 #
 #  Instalación:
 #    mkdir -p ~/.codex
 #    cp config/codex-config.toml.example ~/.codex/config.toml
 #    chmod 600 ~/.codex/config.toml
 #
-#  Las claves NO van en este archivo: se leen del entorno
-#  mediante env_key. Exportarlas con:
+#  Las claves NO van en este archivo: se leen del entorno.
+#  Aquí solo hace falta LITELLM_MASTER_KEY — las claves de los
+#  cuatro proveedores las guarda LiteLLM.
 #    set -a && source ~/self-hosted-ai-devops/.env && set +a
 # ============================================================
 
 
 # ---------- Valores por defecto ----------
-model          = "gpt-5.1"
-model_provider = "openai"
+model          = "planner"
+model_provider = "gateway"
 
-# Sandbox: los agentes escriben solo dentro del workspace.
+# Sandbox: los agentes escriben solo dentro de su worktree.
 # Ver docs/seguridad.md — no aflojar esto sin motivo.
 approval_policy = "on-failure"
 sandbox_mode    = "workspace-write"
 
 
 # ============================================================
-#  PROVEEDORES
+#  PROVEEDOR ÚNICO — el gateway LiteLLM
+# ============================================================
+#  Ojo: los bloques [model_providers.*] NO son sobreescribibles
+#  por perfil. Van al nivel superior y todos los perfiles los ven.
 # ============================================================
 
-[model_providers.openai]
-name     = "OpenAI"
-base_url = "https://api.openai.com/v1"
-env_key  = "OPENAI_API_KEY"
+[model_providers.gateway]
+name     = "LiteLLM Gateway"
+base_url = "http://localhost:4000/v1"
+env_key  = "LITELLM_MASTER_KEY"
 wire_api = "responses"
-
-[model_providers.deepseek]
-name     = "DeepSeek"
-base_url = "https://api.deepseek.com/v1"
-env_key  = "DEEPSEEK_API_KEY"
-wire_api = "chat"
-
-[model_providers.qwen]
-name     = "Alibaba Bailian (DashScope)"
-# ⚠️ Ojo con la región: el endpoint internacional y el de China
-# continental son distintos y las claves no son intercambiables.
-base_url = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-env_key  = "DASHSCOPE_API_KEY"
-wire_api = "chat"
-
-[model_providers.glm]
-name     = "Zhipu AI / Z.ai"
-base_url = "https://open.bigmodel.cn/api/paas/v4"
-env_key  = "ZHIPU_API_KEY"
-wire_api = "chat"
 
 
 # ============================================================
 #  PERFILES — uno por agente
-#  Detalle de roles y prompts en docs/agentes.md
+#  Los nombres de modelo son ALIAS definidos en
+#  infra/litellm-config.yaml, no nombres reales de modelo.
+#  Cambiar de modelo se hace allá, sin tocar este archivo.
+#
+#  Roles y prompts: docs/agentes.md
 # ============================================================
 
-# --- Planificador y Revisor ---
+# --- Planificador ---
 # Pocos tokens, mucho criterio. Cubierto por ChatGPT Plus.
-[profiles.openai]
-model           = "gpt-5.1"
-model_provider  = "openai"
+[profiles.planner]
+model           = "planner"
+model_provider  = "gateway"
 approval_policy = "on-failure"
 
 # --- Agente Backend ---
-# El que más tokens consume: por eso va en el modelo barato.
-[profiles.deepseek]
-model           = "deepseek-chat"
-model_provider  = "deepseek"
+# El que más tokens consume: por eso apunta al modelo barato.
+[profiles.backend]
+model           = "backend"
+model_provider  = "gateway"
 approval_policy = "on-failure"
 
 # --- Agente de Tests ---
-[profiles.qwen]
-model           = "qwen3.5-coder"
-model_provider  = "qwen"
+[profiles.tester]
+model           = "tester"
+model_provider  = "gateway"
 approval_policy = "on-failure"
 
 # --- Agente de Docs ---
 # Modelo gratuito: redactar documentación tolera un modelo liviano.
-[profiles.glm]
-model           = "glm-4.5-air"
-model_provider  = "glm"
+[profiles.docs]
+model           = "docs"
+model_provider  = "gateway"
+approval_policy = "on-failure"
+
+# --- Agente Revisor ---
+# Mismo modelo que el Planificador, pero perfil aparte: así el
+# gasto de revisar queda separado del de planificar en LiteLLM.
+[profiles.reviewer]
+model           = "reviewer"
+model_provider  = "gateway"
 approval_policy = "on-failure"
 
 
 # ============================================================
 #  Probar cada perfil POR SEPARADO antes de armar el flujo:
 #
-#    codex --profile openai   "responde solo: ok"
-#    codex --profile deepseek "responde solo: ok"
-#    codex --profile qwen     "responde solo: ok"
-#    codex --profile glm      "responde solo: ok"
+#    codex --profile planner  "responde solo: ok"
+#    codex --profile backend  "responde solo: ok"
+#    codex --profile tester   "responde solo: ok"
+#    codex --profile docs     "responde solo: ok"
+#    codex --profile reviewer "responde solo: ok"
 #
-#  Si uno falla, es problema de ese proveedor y se arregla solo.
-#  Probarlos juntos convierte 4 problemas simples en 1 confuso.
+#  Si uno falla, es problema de ese modelo en LiteLLM y se
+#  arregla solo. Probarlos juntos convierte 5 problemas simples
+#  en 1 confuso.
+#
+#  Antes de esto, verificar que el gateway responde:
+#    curl http://localhost:4000/health/liveliness
 # ============================================================

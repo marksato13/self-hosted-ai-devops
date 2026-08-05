@@ -6,15 +6,33 @@ Qué modelo usa cada agente, de dónde sale la clave y cuánto cuesta.
 
 ---
 
+## 🔴 Todo pasa por LiteLLM
+
+Codex CLI **no** habla con los proveedores directamente. Desde febrero de 2026 solo acepta la Responses API, y DeepSeek, Bailian y Zhipu exponen Chat Completions. LiteLLM traduce entre ambas.
+
+```
+Codex ──responses──► LiteLLM ──chat──► DeepSeek / Qwen / GLM
+                        │
+                        └── presupuestos, fallbacks, registro de costos
+```
+
+No es una comodidad: **sin LiteLLM, tres de los cinco agentes no arrancan**. Ver [ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos) y [`infra/litellm-config.yaml`](../infra/litellm-config.yaml).
+
+Consecuencia práctica: los nombres de perfil de Codex son **alias** definidos en el YAML de LiteLLM. Cambiar de modelo se hace ahí, sin tocar Codex.
+
+---
+
 ## Reparto por agente
 
-| Agente | Perfil | Modelo | Proveedor | Variable de entorno |
+| Agente | Alias | Modelo | Proveedor | Variable de entorno |
 |---|---|---|---|---|
-| Planificador | `openai` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
-| Backend | `deepseek` | DeepSeek V4 | DeepSeek | `DEEPSEEK_API_KEY` |
-| Tests | `qwen` | Qwen3.5-coder | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
-| Docs | `glm` | GLM-4.5-Air | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
-| Revisor | `openai` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
+| Planificador | `planner` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
+| Backend | `backend` | DeepSeek V4 | DeepSeek | `DEEPSEEK_API_KEY` |
+| Tests | `tester` | Qwen3.5-coder | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
+| Docs | `docs` | GLM-4.5-Air | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
+| Revisor | `reviewer` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
+
+Las cuatro claves las consume **LiteLLM**. Codex solo necesita `LITELLM_MASTER_KEY`.
 
 ---
 
@@ -60,15 +78,26 @@ Al evaluar un modelo nuevo, verificar ambas antes que cualquier otra cosa.
 
 Un agente autónomo con reintentos automáticos puede quemar créditos durante la noche sin que nadie lo note. Tres capas de defensa, en orden de importancia:
 
-| Capa | Dónde se configura | Efecto |
-|---|---|---|
-| **1. Tope en la consola del proveedor** | Web de OpenAI, DeepSeek, Bailian, Zhipu | El único que **realmente** corta el gasto |
-| 2. Alertas de consumo por correo | Misma consola | Te enteras antes de que sea tarde |
-| 3. `MONTHLY_BUDGET_USD` y `MAX_RETRIES_PER_TASK` en `.env` | Este repo | El orquestador se autolimita — pero es software propio, puede fallar |
+| # | Capa | Dónde | Qué tan confiable |
+|---|---|---|---|
+| 1 | Tope en la consola del proveedor | Web de OpenAI, DeepSeek, Bailian, Zhipu | **Absoluta** — fuera de tu código, no puede fallar |
+| 2 | `max_budget` global de LiteLLM | `infra/litellm-config.yaml` | Alta — el gateway rechaza la llamada |
+| 3 | Clave virtual con presupuesto por agente | LiteLLM, 5 USD cada una | Alta — aísla al agente que se desmadró |
+| 4 | `MAX_RETRIES_PER_TASK`, `TASK_TIMEOUT_MINUTES` | `.env` | Media — es software propio, puede fallar |
+| 5 | Alertas de consumo por correo | Consola del proveedor | No corta nada, pero te enterás a tiempo |
 
-**La capa 1 no es opcional.** Un límite escrito solo en el `.env` no detiene nada si el orquestador tiene un bug.
+**La capa 1 no es opcional.** Un límite que vive solo en tu propio código no detiene nada si tu propio código tiene un bug.
 
-Tope sugerido para empezar: **20 USD/mes** repartidos entre los proveedores de pago. Con el reparto de carga previsto (85 % del volumen en modelos baratos) debería sobrar.
+La capa 3 es la más útil en la práctica: si el agente Backend entra en bucle, quema **sus** 5 USD y se detiene, sin arrastrar el presupuesto de los demás ni dejar al Revisor sin crédito. Se crean en la [Fase 5.4](instalacion.md#54--claves-virtuales-con-presupuesto-por-agente).
+
+Consultar el gasto acumulado por agente:
+
+```bash
+curl -s http://localhost:4000/spend/logs \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq
+```
+
+Tope sugerido para empezar: **20 USD/mes** en total, 5 por agente. Con el reparto previsto (85 % del volumen en modelos baratos) debería sobrar.
 
 ---
 

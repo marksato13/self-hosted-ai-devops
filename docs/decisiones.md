@@ -122,11 +122,107 @@ Esta es la duda que más aparece al crear la VM, así que va con detalle.
 
 ---
 
+## ADR-010 — LiteLLM como gateway de modelos
+
+**Contexto:** el diseño original apuntaba Codex CLI directamente a cada proveedor, con un perfil por modelo y `wire_api = "chat"`.
+
+**Eso no funciona.** Desde febrero de 2026, Codex CLI **solo acepta `wire_api = "responses"`**; el valor `"chat"` (Chat Completions) fue eliminado, y los proveedores externos deben hablar la Responses API de OpenAI para conectarse directo. DeepSeek, Bailian y Zhipu exponen Chat Completions, no Responses. Los perfiles `deepseek`, `qwen` y `glm` habrían fallado en la Fase 7, después de montar toda la infraestructura.
+
+**Decisión:** meter **LiteLLM** entre Codex y los proveedores.
+
+```
+Antes (roto):   Codex ──responses──✗── DeepSeek (habla chat)
+Ahora:          Codex ──responses──► LiteLLM ──chat──► DeepSeek / Qwen / GLM
+```
+
+LiteLLM expone `/v1/responses` y hace de puente hacia `/chat/completions`. Codex ve un proveedor único que habla su idioma.
+
+**Lo que se gana de yapa:**
+
+| Problema que estaba pendiente | Cómo lo resuelve |
+|---|---|
+| El tope de gasto vivía en un `.env` que nadie hacía cumplir | `max_budget` aplicado por el gateway — corta de verdad |
+| Cambiar de modelo obligaba a editar `config.toml` | Se cambia en el YAML de LiteLLM; Codex no se entera |
+| No se sabía cuánto gastó cada agente | Registra costo por llamada y por clave virtual |
+| Si un proveedor se caía, la tarea moría | Cadena de *fallbacks* configurable |
+
+**A cambio se acepta:** dos contenedores más (LiteLLM y su Postgres) y una pieza más que puede fallar. Vale la pena: sin esto, tres de los cinco agentes no arrancan.
+
+Configuración en [`infra/litellm-config.yaml`](../infra/litellm-config.yaml).
+
+---
+
+## ADR-011 — Git worktrees, no clones por agente
+
+**Contexto:** quedaba abierto si los tres agentes en paralelo comparten un clon o usan uno cada uno.
+
+**Decisión:** **un git worktree por agente**. Cada uno tiene su directorio de trabajo, todos comparten un solo `.git`.
+
+**Por qué:**
+
+| | 3 clones | 3 worktrees |
+|---|---|---|
+| Espacio en disco | 3× el repo | 1× + archivos de cada rama |
+| `git fetch` | Tres veces | Una, todos lo ven |
+| Aislamiento de archivos | Total | Total |
+| Que el Revisor una las ramas | Requiere pushear y traer todo | Local, inmediato |
+
+El último punto decide: el Revisor integra las tres ramas **sin pasar por GitHub**, porque comparten repositorio.
+
+Es además lo que hace el ecosistema — amux, dmux, claude-squad, vibe-tree, cyrus, Composio y una docena más. JetBrains le dio soporte nativo en 2026.1.
+
+Automatizado en [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y [`scripts/limpiar-worktrees.sh`](../scripts/limpiar-worktrees.sh).
+
+---
+
+## ADR-012 — AGENTS.md para las reglas del repo
+
+**Decisión:** un `AGENTS.md` en la raíz con las convenciones del repositorio.
+
+**Por qué:** es un estándar bajo la Linux Foundation, presente en más de 60 000 repos y **leído de forma nativa por Codex CLI**, Claude Code, Cursor, Aider y Copilot. Las reglas dejan de repetirse en cada prompt: menos tokens por llamada y menos chance de que un agente ignore una convención.
+
+**Regla de oro observada:** los archivos cortos y precisos rinden mejor que los largos y genéricos. 30–50 líneas. Un ejemplo de código vale más que tres párrafos de descripción.
+
+---
+
+## ADR-013 — Gitleaks en pre-commit
+
+**Contexto:** repositorio público, cuatro claves de API y un token de GitHub en la misma máquina, y agentes autónomos commiteando sin supervisión.
+
+**El dato que lo justifica:** un informe de GitGuardian de marzo de 2026 midió que **los commits asistidos por IA filtran secretos a aproximadamente el doble de la tasa humana**. Claude Code, Cursor y Codex han commiteado credenciales en el último año.
+
+**Decisión:** Gitleaks como hook de pre-commit, más `no-commit-to-branch` sobre `main`.
+
+Una vez que un secreto entra al historial de git, hay que asumir que ya fue leído: reescribir el historial no lo deshace. El hook actúa **antes** de que el commit exista.
+
+Configurado en [`.pre-commit-config.yaml`](../.pre-commit-config.yaml).
+
+---
+
+## ADR-014 — Tres frenos, no uno
+
+**Contexto:** el diseño tenía un solo límite, `MAX_RETRIES_PER_TASK=2`.
+
+**Decisión:** tres límites independientes, siguiendo lo que hacen los proyectos de bucles autónomos (MartinLoop acota gasto, fractal acota profundidad/costo/tiempo, ralph-claude-code detecta la condición de salida):
+
+| Freno | Dónde | Qué corta |
+|---|---|---|
+| `MAX_RETRIES_PER_TASK=2` | `.env` | El agente que reintenta en círculos |
+| `TASK_TIMEOUT_MINUTES=30` | `.env` | El agente colgado que no reintenta ni termina |
+| `max_budget: 20` | `litellm-config.yaml` | El gasto, pase lo que pase |
+
+**Por qué tres:** cada uno atrapa un modo de falla distinto. Los reintentos no detectan un proceso colgado; el timeout no detecta un agente que gasta rápido y termina; el presupuesto no evita perder una noche de trabajo por un proceso trabado. El presupuesto es el único que se aplica fuera de nuestro propio código — por eso es el que de verdad protege.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
 |---|---|
-| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resolver en la Fase 4 |
+| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resolver en la Fase 8 |
 | ¿PAT o GitHub App? | El PAT alcanza para empezar; migrar si se suman más repos |
-| ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 3 |
-| ¿Los agentes comparten un clon del repo o cada uno el suyo? | Probable: uno por agente, para evitar pisarse. Confirmar en la Fase 5 |
+| ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 6 |
+| ¿Conviene un hilo de Telegram por tarea, como hace takopi? | Evaluar cuando haya varias tareas concurrentes |
+| ¿Correr al Revisor también como check de CI, con codex-action? | Después de la Fase 9 |
+
+*(Resuelta: ¿clones o worktrees? → worktrees, ADR-011.)*

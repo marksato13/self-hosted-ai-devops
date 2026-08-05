@@ -1,20 +1,22 @@
 # Perfiles de los agentes
 
-Los cinco roles de la flota. Todos son **el mismo binario** —Codex CLI— invocado con un perfil distinto de `~/.codex/config.toml`. Lo que cambia entre ellos es el modelo, el prompt de sistema y los permisos.
+Los cinco roles de la flota. Todos son **el mismo binario** —Codex CLI— invocado con un perfil distinto de `~/.codex/config.toml`. Lo que cambia entre ellos es el modelo, el prompt de sistema, el worktree y los permisos.
 
 ---
 
 ## Tabla de referencia rápida
 
-| # | Agente | Perfil | Modelo | Rama que produce | Permisos |
+| # | Agente | Perfil | Modelo | Worktree | Rama que produce |
 |---|---|---|---|---|---|
-| 1 | **Planificador** | `openai` | GPT-5.1 | ninguna (solo lee) | Lectura del repo y de issues |
-| 2 | **Backend** | `deepseek` | DeepSeek V4 | `feat/issue-<n>-backend` | Escritura en `src/` |
-| 3 | **Tests** | `qwen` | Qwen3.5-coder | `test/issue-<n>` | Escritura en `tests/` |
-| 4 | **Docs** | `glm` | GLM-4.5-Air | `docs/issue-<n>` | Escritura en `docs/` y `README.md` |
-| 5 | **Revisor** | `openai` | GPT-5.1 | `integra/issue-<n>` + PR | Merge entre ramas, abrir PR. **No** mergea a `main` |
+| 1 | **Planificador** | `planner` | GPT-5.1 | repo principal (solo lee) | ninguna |
+| 2 | **Backend** | `backend` | DeepSeek V4 | `issue-<n>-backend/` | `feat/issue-<n>-backend` |
+| 3 | **Tests** | `tester` | Qwen3.5-coder | `issue-<n>-tests/` | `test/issue-<n>` |
+| 4 | **Docs** | `docs` | GLM-4.5-Air | `issue-<n>-docs/` | `docs/issue-<n>` |
+| 5 | **Revisor** | `reviewer` | GPT-5.1 | repo principal | `integra/issue-<n>` + PR en borrador |
 
-Los agentes 2, 3 y 4 corren **en paralelo**. Los agentes 1 y 5 son el mismo modelo en dos momentos distintos del ciclo.
+Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 usan el mismo modelo pero perfiles distintos, para que el gasto de planificar quede separado del de revisar en el registro de LiteLLM.
+
+> Los nombres de perfil son **alias**, no modelos reales: se resuelven en [`infra/litellm-config.yaml`](../infra/litellm-config.yaml). Cambiar de modelo se hace allá y no toca ni la configuración de Codex ni estos prompts.
 
 ---
 
@@ -186,29 +188,42 @@ NUNCA hagas merge a main. Esa decisión es del usuario.
 
 ## Límites que aplican a todos
 
-| Límite | Valor | Por qué |
+| Límite | Valor | Dónde se aplica |
 |---|---|---|
-| Reintentos por subtarea | 2 | Un bucle de reintentos quema créditos de madrugada |
-| Escritura en `main` | Prohibida | Protegida en GitHub; el humano decide |
-| Alcance de archivos | Solo los de su subtarea | Evita que dos agentes se pisen |
-| Instalar dependencias | Requiere declararlo en el commit | Una dependencia nueva es una decisión, no un detalle |
-| Acceso a `.env` y secretos | Ninguno | Ver [seguridad.md](seguridad.md) |
-| Sandbox de Codex | Acotado al workspace | Nada de escritura libre en el sistema de archivos de la VM |
+| Reintentos por subtarea | 2 | `MAX_RETRIES_PER_TASK` en `.env` |
+| Tiempo por tarea | 30 min | `TASK_TIMEOUT_MINUTES` en `.env` |
+| Presupuesto por agente | 5 USD/mes | Clave virtual de LiteLLM — **la que corta de verdad** |
+| Escritura en `main` | Prohibida | Branch protection + hook `no-commit-to-branch` |
+| Alcance de archivos | Solo los de su subtarea | Su propio worktree |
+| Commitear un secreto | Bloqueado | Gitleaks en pre-commit |
+| Instalar dependencias | Debe declararlo en el commit | Prompt de sistema |
+| Acceso a `.env` y secretos | Ninguno | Fuera de su worktree |
+| Sandbox de Codex | Acotado al workspace | `sandbox_mode = "workspace-write"` |
+
+Los tres primeros son independientes entre sí y atrapan fallas distintas: reintentos en círculo, proceso colgado y gasto desbocado ([ADR-014](decisiones.md#adr-014--tres-frenos-no-uno)).
 
 ---
 
 ## Cómo se invoca cada perfil
 
-```bash
-# Planificador / Revisor
-codex --profile openai   "..."
+Los tres agentes en paralelo corren **cada uno en su worktree**:
 
-# Ejecutores
-codex --profile deepseek "..."
-codex --profile qwen     "..."
-codex --profile glm      "..."
+```bash
+WT=~/workspace/worktrees
+
+(cd $WT/issue-12-backend && codex --profile backend "…") &
+(cd $WT/issue-12-tests   && codex --profile tester  "…") &
+(cd $WT/issue-12-docs    && codex --profile docs    "…") &
+wait
 ```
 
-Los perfiles se definen en `~/.codex/config.toml`, a partir de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).
+El Planificador y el Revisor corren en el repo principal:
 
-> **Pendiente de resolver:** si OpenClaw puede invocar estos comandos directamente o hace falta un wrapper que traduzca las tareas a llamadas de Codex. Se define en la Fase 4 de la instalación.
+```bash
+codex --profile planner  "…"
+codex --profile reviewer "…"
+```
+
+Los worktrees se crean con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y el trabajo del Revisor está automatizado en [`scripts/integrar.sh`](../scripts/integrar.sh). Los perfiles salen de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).
+
+> **Pendiente de resolver:** si OpenClaw invoca estos comandos directamente o hace falta un wrapper. Se define en la Fase 10, con el flujo ya funcionando a mano.

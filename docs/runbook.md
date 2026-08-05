@@ -10,11 +10,26 @@ Qué comandos correr cuando algo pasa. Pensado para consultar desde el celular, 
 cd ~/self-hosted-ai-devops
 C=infra/docker-compose.yml
 
-docker compose -f $C ps          # ¿está corriendo?
-docker compose -f $C logs -f     # ver logs en vivo (Ctrl+C para salir)
-docker compose -f $C restart     # reiniciar el orquestador
-docker compose -f $C down        # 🛑 parada de emergencia
-docker compose -f $C up -d       # levantar
+docker compose -f $C ps               # ¿están los 3 servicios?
+docker compose -f $C logs -f          # logs en vivo (Ctrl+C para salir)
+docker compose -f $C logs -f openclaw # solo el orquestador
+docker compose -f $C logs -f litellm  # solo el gateway
+docker compose -f $C restart          # reiniciar todo
+docker compose -f $C down             # 🛑 parada de emergencia
+docker compose -f $C up -d            # levantar
+```
+
+Gasto acumulado por agente:
+
+```bash
+curl -s http://localhost:4000/spend/logs \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq
+```
+
+Worktrees en uso:
+
+```bash
+./scripts/limpiar-worktrees.sh --listar
 ```
 
 Vale la pena dejar alias en `~/.bashrc`:
@@ -75,30 +90,73 @@ docker compose -f $C logs --tail 50
 
 ### Un perfil de Codex falla
 
-Probalo aislado, nunca todos juntos:
+Con el gateway en el medio, el problema puede estar en dos lugares. Aislalo de abajo hacia arriba.
+
+**Primero: ¿responde el gateway?**
 
 ```bash
-codex --profile deepseek "responde: ok"
+curl -s http://localhost:4000/health/liveliness
+```
+
+**Segundo: ¿responde ese modelo en el gateway?**
+
+```bash
+curl -s http://localhost:4000/v1/chat/completions \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"backend","messages":[{"role":"user","content":"ok"}]}' | jq
+```
+
+Si falla acá, el problema es del proveedor: se arregla en `infra/litellm-config.yaml` y `docker compose restart litellm`.
+
+| Error | Causa |
+|---|---|
+| `401` / `invalid api key` | Clave del proveedor mal copiada, o no llegó al contenedor |
+| `404` / `model not found` | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
+| `429` | Sin crédito o límite de tasa. Revisá la consola del proveedor |
+| `budget exceeded` | La clave virtual de ese agente agotó sus 5 USD. **Funcionando como debe** |
+| `connection refused` | `api_base` incorrecta, o región equivocada (caso Bailian) |
+
+**Tercero: si el gateway responde pero Codex no**, el problema está en `~/.codex/config.toml`:
+
+```bash
+codex --profile backend "responde: ok"
 ```
 
 | Error | Causa |
 |---|---|
-| `401` / `invalid api key` | Clave mal copiada, o no exportada al entorno |
-| `404` / `model not found` | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
-| `429` | Sin crédito o límite de tasa alcanzado. Revisá la consola |
-| `connection refused` | `base_url` incorrecta, o región equivocada (caso Bailian) |
-
-¿Las claves están en el entorno?
+| Error de `wire_api` | Debe ser `"responses"`. El valor `"chat"` ya no existe |
+| `connection refused` a `localhost:4000` | El gateway está caído, o Codex corre dentro de un contenedor y no ve `localhost` |
+| `401` contra el gateway | `LITELLM_MASTER_KEY` no está en el entorno |
 
 ```bash
-env | grep -E "OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU" | sed 's/=.*/=***/'
-```
-
-Si no aparecen:
-
-```bash
+env | grep -E "LITELLM|OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU" | sed 's/=.*/=***/'
 set -a && source ~/self-hosted-ai-devops/.env && set +a
 ```
+
+### Los worktrees se desordenaron
+
+```bash
+./scripts/limpiar-worktrees.sh --listar
+git worktree prune                    # borra referencias a directorios que ya no existen
+./scripts/limpiar-worktrees.sh 12     # limpia un issue puntual
+```
+
+| Síntoma | Causa |
+|---|---|
+| `worktree add` dice que la rama ya existe | Hay una tarea vieja con ese número sin limpiar |
+| `~/worktrees` ocupa mucho disco | Tareas terminadas sin limpiar. `df -h` y limpiá |
+| Un worktree apunta a un directorio borrado | `git worktree prune` |
+
+### Un commit fue bloqueado por gitleaks
+
+**Funcionando como debe.** Revisá qué detectó:
+
+```bash
+gitleaks protect --staged --verbose
+```
+
+Si es un secreto real: sacalo del archivo y, si ya se había usado, **revocalo en la consola del proveedor**. Si es un falso positivo (un ejemplo en la documentación), agregá una excepción en `.gitleaks.toml` — nunca uses `--no-verify` para saltear el hook.
 
 ### `git push` rechazado
 

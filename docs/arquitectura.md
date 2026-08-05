@@ -21,23 +21,49 @@ flowchart TB
     subgraph HOST["🖥️ Host físico — VMware ESXi 8.0 U3e"]
         subgraph VM["VM: Ubuntu Server 24.04 LTS · 4 vCPU · 6 GB · 30 GB"]
             TS["Tailscale<br/>(SSH remoto)"]
-            DOCK["Docker Engine"]
-            OC["OpenClaw<br/>orquestador"]
-            CX["Codex CLI<br/>4 perfiles"]
-            WS["Workspace git<br/>clon del repo"]
-            DOCK --- OC
+            OC["OpenClaw<br/>orquestador · Docker"]
+            LL["LiteLLM<br/>gateway · Docker"]
+            PG[("Postgres<br/>gasto y claves")]
+            CX["Codex CLI<br/>5 perfiles"]
+            WS["Workspace git<br/>+ worktrees por agente"]
             OC --> CX
+            CX --> LL
+            LL --- PG
             CX --> WS
         end
     end
 
     APP <--> TG
     TG <-.->|polling saliente| OC
-    CX --> API
+    LL --> API
     WS --> GH
 ```
 
-**Lo importante de este diagrama:** todas las flechas que cruzan el borde del host **salen** desde la VM. Nada entra desde afuera. Telegram funciona por *polling* — el bot le pregunta a los servidores de Telegram si hay mensajes nuevos — así que **no hay que abrir un solo puerto en el router**. Tailscale cubre el acceso SSH por una red privada, sin exponer nada a internet.
+**Dos cosas que este diagrama muestra y conviene no pasar por alto:**
+
+1. **Todas las flechas que cruzan el borde del host salen.** Nada entra. Telegram funciona por *polling* — el bot pregunta a los servidores de Telegram si hay mensajes — así que **no hay que abrir un solo puerto en el router**. Tailscale cubre el SSH por una red privada.
+
+2. **Codex no habla con los proveedores: habla con LiteLLM.** Es obligatorio, no una comodidad. Codex solo entiende la Responses API; DeepSeek, Qwen y GLM solo hablan Chat Completions. LiteLLM traduce, y de paso aplica los topes de gasto y registra cuánto consumió cada agente ([ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos)).
+
+---
+
+## 1.1 Dónde trabaja cada agente
+
+Los tres agentes en paralelo no comparten directorio: cada uno tiene su **git worktree**, y los tres comparten un único `.git` ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)).
+
+```
+~/workspace/
+├── self-hosted-ai-devops/          ← repo principal, siempre en main
+│   └── .git/                       ← el único .git de todos
+└── ../worktrees/
+    ├── issue-12-backend/           → rama feat/issue-12-backend
+    ├── issue-12-tests/             → rama test/issue-12
+    └── issue-12-docs/              → rama docs/issue-12
+```
+
+Esto es lo que permite que el Revisor una las tres ramas **sin pasar por GitHub**: ya las tiene localmente. Con clones separados habría que pushear y traer todo antes de poder integrar.
+
+Se crean y se borran con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y [`scripts/limpiar-worktrees.sh`](../scripts/limpiar-worktrees.sh).
 
 ---
 
@@ -58,8 +84,9 @@ sequenceDiagram
     U->>O: "avanza el issue #12"
     O->>P: tarea + contexto del repo
     P->>G: lee el issue #12
-    P-->>O: plan en 3 subtareas
-    par En paralelo, cada uno en su rama
+    P-->>O: plan en 3 subtareas (JSON)
+    O->>O: nueva-tarea.sh 12<br/>crea 3 worktrees
+    par En paralelo, cada uno en su worktree
         O->>B: subtarea backend
         B->>G: push a feat/issue-12-backend
     and
@@ -70,18 +97,19 @@ sequenceDiagram
         D->>G: push a docs/issue-12
     end
     O->>R: las 3 ramas están listas
-    R->>G: une las ramas en integra/issue-12
-    R->>R: corre la suite de tests
-    alt Los tests fallan
-        R-->>O: reporte del fallo
+    R->>R: integrar.sh 12<br/>une las ramas (local, sin GitHub)
+    R->>R: gitleaks + tests + compose
+    alt Falla algo
+        R-->>O: reporte del fallo concreto
         O->>B: corregir (máx. 2 reintentos)
     else Todo pasa
-        R->>G: abre 1 Pull Request
+        R->>G: abre 1 PR en BORRADOR
         R-->>O: link del PR + resumen
     end
     O-->>U: 📲 "PR #7 listo: <link>"
     U->>O: "apruébalo"
-    O->>G: merge a main
+    O->>G: marca listo y mergea a main
+    O->>O: limpiar-worktrees.sh 12
 ```
 
 ---
@@ -142,23 +170,31 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 
 | Componente | Dónde vive | Se reinicia con |
 |---|---|---|
-| OpenClaw | Contenedor Docker en la VM | `docker compose restart` |
-| Codex CLI | Binario en el host de la VM (no en contenedor) | No aplica, se invoca por tarea |
-| Workspace git | `~/workspace/` en la VM | Se puede reclonar sin perder nada |
+| OpenClaw | Contenedor Docker | `docker compose restart openclaw` |
+| LiteLLM | Contenedor Docker | `docker compose restart litellm` |
+| Postgres (gasto, claves virtuales) | Contenedor + volumen `postgres-data` | Sobrevive a todo salvo borrar el volumen |
+| Codex CLI | Binario en el host de la VM, no en contenedor | No aplica: se invoca por tarea |
+| Workspace y worktrees | `~/workspace/` | Se reclona sin perder nada |
 | Secretos | `~/self-hosted-ai-devops/.env`, permisos `600` | Se restauran a mano |
-| Estado de tareas | Volumen Docker de OpenClaw | Sobrevive al reinicio del contenedor |
+| Estado de tareas | Volumen `openclaw-data` | Sobrevive al reinicio del contenedor |
 
-**Punto sin resolver:** dónde queda exactamente la memoria persistente de tareas entre reinicios de OpenClaw. Verificar al llegar a la Fase 3 y documentar aquí.
+**Punto sin resolver:** dónde queda exactamente la memoria persistente de tareas entre reinicios de OpenClaw. Verificar al llegar a la Fase 6 y documentar aquí.
 
 ---
 
 ## 6. Modos de falla previstos
 
-| Si pasa esto | El sistema debería | Estado |
+| Si pasa esto | El sistema debería | Cubierto por |
 |---|---|---|
-| Un agente entra en bucle | Cortar a los 2 reintentos y avisar por Telegram | ⚠️ Por implementar |
-| Se cae la API de un proveedor | Reportar el fallo, no reintentar en bucle | ⚠️ Por implementar |
-| Conflicto de merge entre ramas | El Revisor lo resuelve; si no puede, escala al usuario | ⚠️ Por implementar |
-| Un desconocido escribe al bot | Ignorarlo por la allowlist de `chat_id` | 🔴 **Crítico** — ver [seguridad.md](seguridad.md) |
-| Se reinicia la VM | Docker levanta OpenClaw solo (`restart: unless-stopped`) | ✅ Contemplado en el compose |
-| Se acaba el crédito de un proveedor | Avisar por Telegram, no cambiar de modelo en silencio | ⚠️ Por implementar |
+| Un agente entra en bucle de reintentos | Cortar a los 2 intentos y avisar | `MAX_RETRIES_PER_TASK` |
+| Un agente se cuelga sin reintentar ni terminar | Matarlo y avisar | `TASK_TIMEOUT_MINUTES` |
+| Un agente gasta de más | Cortarle el crédito sin tocar a los demás | Clave virtual con presupuesto propio en LiteLLM |
+| Se cae la API de un proveedor | Caer al modelo de respaldo, no reintentar en bucle | `fallbacks` en `litellm-config.yaml` |
+| Conflicto de merge entre ramas | El Revisor lo resuelve; si es ambiguo, escala al usuario | `scripts/integrar.sh` sale con código 2 |
+| Un agente commitea una clave | Bloquear el commit antes de que exista | Gitleaks en pre-commit + verificación en `integrar.sh` |
+| Un agente intenta escribir en `main` | Rechazarlo | Branch protection + hook `no-commit-to-branch` |
+| Un desconocido escribe al bot | Ignorarlo | 🔴 Allowlist de `chat_id` — ver [seguridad.md](seguridad.md) |
+| Se reinicia la VM | Todo vuelve solo | `restart: unless-stopped` + arranque automático en ESXi |
+| Se acaba el crédito de un proveedor | Avisar, no cambiar de modelo en silencio | Registro de gasto en LiteLLM |
+
+Los tres frenos —reintentos, tiempo y presupuesto— atrapan modos de falla distintos y son independientes entre sí ([ADR-014](decisiones.md#adr-014--tres-frenos-no-uno)).

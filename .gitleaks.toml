@@ -1,0 +1,42 @@
+# ============================================================
+#  Configuración de Gitleaks
+# ============================================================
+#  Parte de las reglas por defecto y agrega las excepciones
+#  mínimas para este repo.
+#
+#  Regla de uso: agregar una excepción SOLO para valores que
+#  son demostrablemente falsos (ejemplos de documentación,
+#  plantillas con el valor vacío). Ante la duda, no se agrega:
+#  un falso positivo cuesta un minuto, un secreto filtrado
+#  cuesta rotar credenciales.
+#
+#  Nunca saltear el hook con --no-verify.
+#  Ver docs/seguridad.md
+# ============================================================
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Plantillas de configuración: variables sin valor"
+paths = [
+  '''^\.env\.example$''',
+  '''^config/.*\.example$''',
+  '''^infra/litellm-config\.yaml$''',
+  '''^infra/docker-compose\.yml$''',
+]
+
+[[allowlists]]
+description = "Claves de mentira usadas en la documentación para probar el hook"
+paths = [
+  '''^docs/.*\.md$''',
+  '''^README\.md$''',
+  '''^AGENTS\.md$''',
+  '''^CONTEXTO-PROYECTO\.md$''',
+]
+regexes = [
+  '''falsaparaprobar''',
+  '''sk-proj-falsa.*''',
+  '''1234567890:AAF\.\.\.''',
+  '''ghp_\*+''',
+]
