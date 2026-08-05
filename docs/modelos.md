@@ -117,7 +117,7 @@ Un agente autónomo con reintentos automáticos puede quemar créditos durante l
 
 **La capa 1 no es opcional.** Un límite que vive solo en tu propio código no detiene nada si tu propio código tiene un bug.
 
-La capa 3 es la más útil en la práctica: si el agente Backend entra en bucle, quema **sus** 5 USD y se detiene, sin arrastrar el presupuesto de los demás ni dejar al Revisor sin crédito. Se crean en la [Fase 5.4](instalacion.md#54--claves-virtuales-con-presupuesto-por-agente).
+La capa 3 es la más útil en la práctica: si el agente Backend entra en bucle, quema **sus** 5 USD y se detiene, sin arrastrar el presupuesto de los demás ni dejar al Revisor sin crédito. Se crean en la [Fase 5.4](instalacion.md#54-claves-virtuales-con-presupuesto-por-agente).
 
 Consultar el gasto acumulado por agente:
 

@@ -57,6 +57,28 @@ for rama in "feat/issue-${ISSUE}-backend" "test/issue-${ISSUE}" \
   fi
 done
 
+# Capturas del bucle visual. Se regeneran, así que se borran sin
+# preguntar — salvo `base/`, que es la línea de referencia de main.
+if [[ -f "${REPO_RAIZ}/.env" ]]; then
+  ART="$(grep -E '^ARTEFACTOS_DIR=' "${REPO_RAIZ}/.env" | cut -d= -f2- || true)"
+  if [[ -n "${ART:-}" && -d "$ART" ]]; then
+    for dir in "${ART}"/issue-${ISSUE}-v*; do
+      [[ -d "$dir" ]] || continue
+      rm -rf "$dir"
+      echo "🧹 capturas borradas: $(basename "$dir")"
+    done
+  fi
+fi
+
 echo
 echo "✅ Issue #${ISSUE} limpiado."
 git worktree list
+
+# El stage queda sirviendo el build de esta tarea: ya no significa nada.
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx stage; then
+  echo
+  echo "ℹ️  El stage sigue arriba con el build de esta tarea. Para bajarlo:"
+  echo "      docker compose -f infra/docker-compose.yml \\"
+  echo "                     -f infra/docker-compose.visual.yml --profile visual stop stage"
+  echo "      sudo tailscale serve --https 8443 off"
+fi

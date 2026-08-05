@@ -32,6 +32,17 @@ Worktrees en uso:
 ./scripts/limpiar-worktrees.sh --listar
 ```
 
+Bucle visual (solo si está en uso):
+
+```bash
+V="-f infra/docker-compose.yml -f infra/docker-compose.visual.yml"
+docker compose $V --profile visual ps          # ¿stage arriba?
+curl -s localhost:${STAGE_PORT:-8080}/salud    # ¿responde?
+tailscale serve status                         # ¿publicado en la tailnet?
+sudo tailscale serve --https 8443 off          # bajarlo
+du -sh ~/workspace/artefactos                  # cuánto ocupan las capturas
+```
+
 Vale la pena dejar alias en `~/.bashrc`:
 
 ```bash
@@ -62,8 +73,15 @@ docker compose -f $C ps                # contenedor arriba
 tailscale status                       # red privada conectada
 df -h /                                # espacio en disco
 free -h                                # memoria
-codex --profile openai "responde: ok"  # el modelo responde
+codex --profile planner "responde: ok"  # el modelo responde
 git -C ~/workspace/self-hosted-ai-devops status
+```
+
+O de una sola vez, con el verificador del plan de ejecución:
+
+```bash
+./scripts/verificar.sh all      # sale 0 si todo pasa, 1 si algo falla
+./scripts/verificar.sh 5        # solo una fase
 ```
 
 ---
@@ -182,6 +200,57 @@ docker system prune -a       # ⚠️ borra imágenes no usadas
 docker volume ls             # revisá antes de tocar volúmenes
 ```
 
+### El bucle visual falla
+
+Aislarlo por capas, igual que con los modelos: primero el stage, después el ojo,
+después el modelo. Ver [bucle-visual.md](bucle-visual.md).
+
+**Primero: ¿el stage sirve algo?**
+
+```bash
+curl -sI localhost:${STAGE_PORT:-8080}/ | head -1
+ls "$STAGE_DIR"
+```
+
+| Síntoma | Causa |
+|---|---|
+| `404` en todas las rutas | `STAGE_DIR` vacío: el build no generó nada, o `STAGE_DIST_DIR` apunta mal |
+| El contenedor no arranca | `STAGE_DIR` no existe en el host. Es un bind mount: tiene que existir antes |
+| Se ve la versión vieja | Rarísimo — el `nginx.conf` manda `no-store`. Revisá que el build haya corrido |
+
+**Segundo: ¿Chromium captura?**
+
+```bash
+docker compose $V run --rm shotter capturar.mjs --etiqueta diagnostico
+jq '.fallos, .capturas | length' ~/workspace/artefactos/diagnostico/resumen.json
+```
+
+| Error | Causa |
+|---|---|
+| `Failed to launch browser` | Falta `--no-sandbox`. Va dentro de `capturar.mjs`, no en el compose |
+| Cuelgue o `Target closed` | `/dev/shm` chico: falta el `shm_size: 1gb` del compose |
+| `net::ERR_NAME_NOT_RESOLVED` | `shotter` no ve a `stage`: se levantó sin los **dos** archivos de compose |
+| `Timeout … networkidle` | La página nunca queda quieta (polling, animación infinita). Usá `esperar: "load"` |
+
+**Tercero: el comparador nunca ve diferencias.** Es el fallo peligroso, porque
+parece que todo está bien. Reproducí T054: cambiá algo a propósito y exigí que
+lo detecte. Si no lo ve, bajá `UMBRAL_VISUAL`.
+
+**Cuarto: el Diseñador dice que no puede ver imágenes.**
+
+```bash
+codex --profile designer -i ~/workspace/artefactos/base/inicio__escritorio.png \
+  "¿Qué texto se lee en esta imagen? Respondé solo el texto."
+```
+
+Si no devuelve el texto de la captura, el modelo del alias `designer` no es
+multimodal. Se cambia en `infra/litellm-config.yaml` →
+[modelos.md](modelos.md#el-diseñador-necesita-visión).
+
+**El bucle revirtió los cambios.** Funcionando como debe: la accesibilidad
+empeoró y volvió al punto de retorno. Las dos capturas llegaron al celular para
+que decidas a mano.
+
 ### No entra el SSH desde el celular
 
 ```bash
@@ -209,6 +278,7 @@ Revisá también el consumo en las consolas de los cuatro proveedores.
 
 - Snapshot de la VM en el ESXi.
 - Revisar la fecha de expiración del token de GitHub.
+- Borrar capturas viejas: `find ~/workspace/artefactos -maxdepth 1 -type d -mtime +30 -not -name base -exec rm -rf {} +`
 - Repasar el checklist de [seguridad.md](seguridad.md#checklist-antes-de-dejarlo-corriendo-solo).
 - Buscar intentos de acceso rechazados en los logs del bot.
 
@@ -249,5 +319,6 @@ Antes de aprobar desde el celular:
 - [ ] ¿Hay alguna clave o ruta absoluta en el diff?
 - [ ] ¿Agrega dependencias nuevas? Debería estar declarado en el commit
 - [ ] ¿Cumple el criterio de aceptación del plan original?
+- [ ] *(si es web)* ¿Las capturas del antes y el después muestran lo que decían?
 
 Ante la duda, pedí ajustes en vez de aprobar. Aprobar es lo único que no tiene vuelta atrás fácil.

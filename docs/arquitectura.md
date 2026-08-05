@@ -24,12 +24,17 @@ flowchart TB
             OC["OpenClaw<br/>orquestador · Docker"]
             LL["LiteLLM<br/>gateway · Docker"]
             PG[("Postgres<br/>gasto y claves")]
-            CX["Codex CLI<br/>5 perfiles"]
+            CX["Codex CLI<br/>6 perfiles"]
             WS["Workspace git<br/>+ worktrees por agente"]
+            ST["stage · nginx<br/>build de la rama"]
+            SH["shotter<br/>Chromium headless"]
             OC --> CX
             CX --> LL
             LL --- PG
             CX --> WS
+            WS -->|build| ST
+            ST --> SH
+            SH -->|capturas| CX
         end
     end
 
@@ -37,6 +42,7 @@ flowchart TB
     TG <-.->|polling saliente| OC
     LL --> API
     WS --> GH
+    ST -.->|tailscale serve| APP
 ```
 
 **Dos cosas que este diagrama muestra y conviene no pasar por alto:**
@@ -44,6 +50,8 @@ flowchart TB
 1. **Todas las flechas que cruzan el borde del host salen.** Nada entra. Telegram funciona por *polling* — el bot pregunta a los servidores de Telegram si hay mensajes — así que **no hay que abrir un solo puerto en el router**. Tailscale cubre el SSH por una red privada.
 
 2. **Codex no habla con los proveedores: habla con LiteLLM.** Es obligatorio, no una comodidad. Codex solo entiende la Responses API; DeepSeek, Qwen y GLM solo hablan Chat Completions. LiteLLM traduce, y de paso aplica los topes de gasto y registra cuánto consumió cada agente ([ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos)).
+
+3. **El `stage` es la única flecha que vuelve al celular sin pasar por Telegram**, y va por la red privada de Tailscale — no por internet. `shotter` es Chromium headless: es lo que permite que una VM sin escritorio produzca capturas de pantalla ([bucle-visual.md](bucle-visual.md)). Ambos servicios viven en un `profile` aparte del compose y **no arrancan** si el proyecto no tiene interfaz web.
 
 ---
 
@@ -55,11 +63,18 @@ Los tres agentes en paralelo no comparten directorio: cada uno tiene su **git wo
 ~/workspace/
 ├── self-hosted-ai-devops/          ← repo principal, siempre en main
 │   └── .git/                       ← el único .git de todos
-└── ../worktrees/
-    ├── issue-12-backend/           → rama feat/issue-12-backend
-    ├── issue-12-tests/             → rama test/issue-12
-    └── issue-12-docs/              → rama docs/issue-12
+├── worktrees/
+│   ├── issue-12-backend/           → rama feat/issue-12-backend
+│   ├── issue-12-tests/             → rama test/issue-12
+│   └── issue-12-docs/              → rama docs/issue-12
+├── stage/                          ← build publicado; se BORRA en cada vuelta
+└── artefactos/                     ← capturas, diffs e informes
+    ├── base/                       ← la referencia: cómo se ve main
+    ├── issue-12-v0/                ← antes de tocar nada
+    └── issue-12-v1/  └── diff/     ← después, y lo que cambió en rojo
 ```
+
+`stage/` y `artefactos/` no están versionados: se regeneran en cada corrida.
 
 Esto es lo que permite que el Revisor una las tres ramas **sin pasar por GitHub**: ya las tiene localmente. Con clones separados habría que pushear y traer todo antes de poder integrar.
 
@@ -105,6 +120,10 @@ sequenceDiagram
     else Todo pasa
         R->>G: abre 1 PR en BORRADOR
         R-->>O: link del PR + resumen
+    end
+    opt La tarea toca interfaz web
+        O->>O: bucle-visual.sh 12<br/>stage + capturas + Diseñador
+        O-->>U: 📷 antes / después
     end
     O-->>U: 📲 "PR #7 listo: <link>"
     U->>O: "apruébalo"
@@ -174,7 +193,10 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | LiteLLM | Contenedor Docker | `docker compose restart litellm` |
 | Postgres (gasto, claves virtuales) | Contenedor + volumen `postgres-data` | Sobrevive a todo salvo borrar el volumen |
 | Codex CLI | Binario en el host de la VM, no en contenedor | No aplica: se invoca por tarea |
+| `stage` (nginx) | Contenedor Docker, `profile: visual` | Solo arranca durante el bucle visual |
+| `shotter` (Chromium) | Contenedor efímero, `run --rm` | No queda corriendo: nace y muere por captura |
 | Workspace y worktrees | `~/workspace/` | Se reclona sin perder nada |
+| Capturas y línea base | `~/workspace/artefactos/` | Se regeneran; solo `base/` conviene conservar |
 | Secretos | `~/self-hosted-ai-devops/.env`, permisos `600` | Se restauran a mano |
 | Estado de tareas | Volumen `openclaw-data` | Sobrevive al reinicio del contenedor |
 
@@ -196,5 +218,8 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | Un desconocido escribe al bot | Ignorarlo | 🔴 Allowlist de `chat_id` — ver [seguridad.md](seguridad.md) |
 | Se reinicia la VM | Todo vuelve solo | `restart: unless-stopped` + arranque automático en ESXi |
 | Se acaba el crédito de un proveedor | Avisar, no cambiar de modelo en silencio | Registro de gasto en LiteLLM |
+| El bucle visual empeora el diseño | Revertir al punto de retorno y mandar las dos fotos | `bucle-visual.sh` sale con código 1 |
+| El bucle visual no encuentra nada que arreglar | Terminar, no inventar cambios | El Diseñador responde `SIN-CAMBIOS` |
+| El modelo del Diseñador no ve imágenes | **No está cubierto en caliente** | Se detecta antes, en T057 — falla en silencio si se saltea |
 
 Los tres frenos —reintentos, tiempo y presupuesto— atrapan modos de falla distintos y son independientes entre sí ([ADR-014](decisiones.md#adr-014--tres-frenos-no-uno)).

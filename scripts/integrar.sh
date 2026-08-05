@@ -85,11 +85,22 @@ else
   echo "  ⏭  sin suite de tests en este repo"
 fi
 
-# 3. Compose válido
+# 3. Compose válido — el principal y, si existe, el del bucle visual
 if [[ -f infra/docker-compose.yml ]]; then
-  docker compose -f infra/docker-compose.yml config -q \
+  COMPOSE_ARGS=(-f infra/docker-compose.yml)
+  [[ -f infra/docker-compose.visual.yml ]] && COMPOSE_ARGS+=(-f infra/docker-compose.visual.yml)
+  docker compose "${COMPOSE_ARGS[@]}" config -q \
     && echo "  ✅ docker-compose válido" \
     || { echo "  ❌ docker-compose inválido" >&2; exit 5; }
+fi
+
+# 4. ¿Este cambio toca la interfaz?
+# No se decide por el tipo de tarea sino por lo que realmente cambió.
+TOCA_UI=0
+if git diff --name-only "main..${RAMA_INT}" \
+     | grep -qEi '\.(css|scss|sass|less|html|tsx|jsx|vue|svelte)$'; then
+  TOCA_UI=1
+  echo "  👁️  el diff toca la interfaz — corresponde el bucle visual"
 fi
 
 echo
@@ -110,7 +121,7 @@ $(printf -- '- \`%s\`\n' "${UNIDAS[@]}")
 - [ ] El diff toca solo los archivos previstos
 - [ ] No hay claves ni rutas absolutas
 - [ ] Las dependencias nuevas están declaradas en el commit
-- [ ] Se cumple el criterio de aceptación del plan
+- [ ] Se cumple el criterio de aceptación del plan$( [[ $TOCA_UI -eq 1 ]] && printf '\n- [ ] Revisadas las capturas del antes y el después' )
 
 ---
 Generado por la flota. **El merge lo aprueba una persona.**"
@@ -125,3 +136,10 @@ gh pr create \
 echo
 echo "✅ Pull Request abierto en borrador."
 gh pr view --json url --jq .url
+
+if [[ $TOCA_UI -eq 1 ]]; then
+  echo
+  echo "👁️  Este cambio toca la interfaz. Falta mirarlo:"
+  echo "      ./scripts/bucle-visual.sh ${ISSUE}"
+  echo "   (no se dispara solo: necesita un stage que compile y gasta tokens)"
+fi

@@ -13,7 +13,7 @@ test verde no dice nada sobre un botón que en móvil queda debajo del pliegue.
 |---|---|
 | ¿Cómo toma capturas una VM **sin escritorio**? | Chromium *headless* en Docker. No necesita pantalla ni GNOME |
 | ¿Puedo publicar un **stage** para mirarlo? | Sí: nginx + `tailscale serve` → URL HTTPS privada, sin abrir el router |
-| ¿Puede reportar por **WhatsApp**? | Sí, pero las imágenes conviene mandarlas por Telegram. [Por qué](#el-canal-del-informe) |
+| ¿Puede reportar por **WhatsApp**? | Sí, pero las imágenes conviene mandarlas por Telegram. [Por qué](#5-el-canal-del-informe) |
 
 ---
 
