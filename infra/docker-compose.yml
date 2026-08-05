@@ -1,0 +1,74 @@
+# ============================================================
+#  OpenClaw — orquestador de la flota
+# ============================================================
+#  ⚠️ PLANTILLA, NO CONFIGURACIÓN PROBADA.
+#
+#  El nombre de la imagen y los nombres exactos de las variables
+#  de entorno deben confirmarse en la documentación oficial de
+#  OpenClaw antes de levantar esto. Están parametrizados a
+#  propósito para no dejar valores inventados en el repo.
+#
+#  Uso:
+#    cp ../.env.example ../.env    # y completar
+#    docker compose -f docker-compose.yml up -d
+#    docker compose -f docker-compose.yml logs -f
+# ============================================================
+
+services:
+  openclaw:
+    # Definir OPENCLAW_IMAGE en .env con la imagen oficial
+    image: ${OPENCLAW_IMAGE}
+    container_name: openclaw
+    restart: unless-stopped
+
+    env_file:
+      - ../.env
+
+    environment:
+      # --- Telegram ---
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # 🔴 CRÍTICO: sin esta allowlist, cualquier desconocido que
+      # encuentre el bot obtiene control sobre esta máquina.
+      # Ver docs/seguridad.md
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
+
+      # --- GitHub ---
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_OWNER: ${GITHUB_OWNER}
+      GITHUB_REPO: ${GITHUB_REPO}
+
+      # --- Proveedores de modelos ---
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
+
+      # --- Límites ---
+      MAX_RETRIES_PER_TASK: ${MAX_RETRIES_PER_TASK:-2}
+      MONTHLY_BUDGET_USD: ${MONTHLY_BUDGET_USD:-20}
+
+      TZ: ${TZ:-America/Lima}
+
+    volumes:
+      # Estado persistente del orquestador (sobrevive a reinicios)
+      - openclaw-data:/data
+      # Workspace git donde los agentes clonan y trabajan
+      - ${HOME}/workspace:/workspace
+
+    ports:
+      # Panel web local. Se accede por Tailscale, NO se expone
+      # a internet: no redirigir este puerto en el router.
+      - "127.0.0.1:${OPENCLAW_PORT:-3000}:3000"
+
+    # El tráfico es todo saliente (polling de Telegram, APIs, GitHub).
+    # No hace falta ningún puerto entrante desde internet.
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  openclaw-data:
+    driver: local

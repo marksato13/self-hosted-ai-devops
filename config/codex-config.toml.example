@@ -1,0 +1,104 @@
+# ============================================================
+#  Codex CLI — perfiles de la flota
+# ============================================================
+#  ⚠️ PLANTILLA. Los nombres de campo, las base_url y los
+#  nombres de modelo deben confirmarse en la documentación
+#  oficial de Codex CLI y de cada proveedor antes de usarse.
+#  Ver docs/modelos.md
+#
+#  Instalación:
+#    mkdir -p ~/.codex
+#    cp config/codex-config.toml.example ~/.codex/config.toml
+#    chmod 600 ~/.codex/config.toml
+#
+#  Las claves NO van en este archivo: se leen del entorno
+#  mediante env_key. Exportarlas con:
+#    set -a && source ~/self-hosted-ai-devops/.env && set +a
+# ============================================================
+
+
+# ---------- Valores por defecto ----------
+model          = "gpt-5.1"
+model_provider = "openai"
+
+# Sandbox: los agentes escriben solo dentro del workspace.
+# Ver docs/seguridad.md — no aflojar esto sin motivo.
+approval_policy = "on-failure"
+sandbox_mode    = "workspace-write"
+
+
+# ============================================================
+#  PROVEEDORES
+# ============================================================
+
+[model_providers.openai]
+name     = "OpenAI"
+base_url = "https://api.openai.com/v1"
+env_key  = "OPENAI_API_KEY"
+wire_api = "responses"
+
+[model_providers.deepseek]
+name     = "DeepSeek"
+base_url = "https://api.deepseek.com/v1"
+env_key  = "DEEPSEEK_API_KEY"
+wire_api = "chat"
+
+[model_providers.qwen]
+name     = "Alibaba Bailian (DashScope)"
+# ⚠️ Ojo con la región: el endpoint internacional y el de China
+# continental son distintos y las claves no son intercambiables.
+base_url = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+env_key  = "DASHSCOPE_API_KEY"
+wire_api = "chat"
+
+[model_providers.glm]
+name     = "Zhipu AI / Z.ai"
+base_url = "https://open.bigmodel.cn/api/paas/v4"
+env_key  = "ZHIPU_API_KEY"
+wire_api = "chat"
+
+
+# ============================================================
+#  PERFILES — uno por agente
+#  Detalle de roles y prompts en docs/agentes.md
+# ============================================================
+
+# --- Planificador y Revisor ---
+# Pocos tokens, mucho criterio. Cubierto por ChatGPT Plus.
+[profiles.openai]
+model           = "gpt-5.1"
+model_provider  = "openai"
+approval_policy = "on-failure"
+
+# --- Agente Backend ---
+# El que más tokens consume: por eso va en el modelo barato.
+[profiles.deepseek]
+model           = "deepseek-chat"
+model_provider  = "deepseek"
+approval_policy = "on-failure"
+
+# --- Agente de Tests ---
+[profiles.qwen]
+model           = "qwen3.5-coder"
+model_provider  = "qwen"
+approval_policy = "on-failure"
+
+# --- Agente de Docs ---
+# Modelo gratuito: redactar documentación tolera un modelo liviano.
+[profiles.glm]
+model           = "glm-4.5-air"
+model_provider  = "glm"
+approval_policy = "on-failure"
+
+
+# ============================================================
+#  Probar cada perfil POR SEPARADO antes de armar el flujo:
+#
+#    codex --profile openai   "responde solo: ok"
+#    codex --profile deepseek "responde solo: ok"
+#    codex --profile qwen     "responde solo: ok"
+#    codex --profile glm      "responde solo: ok"
+#
+#  Si uno falla, es problema de ese proveedor y se arregla solo.
+#  Probarlos juntos convierte 4 problemas simples en 1 confuso.
+# ============================================================

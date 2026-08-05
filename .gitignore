@@ -1,0 +1,48 @@
+# === SECRETOS — nunca deben salir de la máquina ===
+.env
+.env.*
+!.env.example
+secrets/
+*.key
+*.pem
+*.p12
+credentials.json
+config/codex-config.toml
+!config/codex-config.toml.example
+
+# Estado y datos de OpenClaw
+data/
+openclaw-data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*~
+
+# Dependencias y build
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+
+# Temporales
+tmp/
+*.tmp
+*.bak
