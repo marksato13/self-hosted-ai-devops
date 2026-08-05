@@ -215,6 +215,77 @@ Configurado en [`.pre-commit-config.yaml`](../.pre-commit-config.yaml).
 
 ---
 
+## ADR-015 — El bucle visual se corta con accesibilidad, no con gusto
+
+**Contexto:** los agentes escribían interfaces sin verlas nunca. Un test verde no dice nada sobre un botón que en móvil queda cortado. Hacía falta un bucle de «mirar y corregir», pero un bucle necesita una **condición de salida**.
+
+**El problema:** «¿está lindo?» no tiene respuesta verificable. Un modelo al que se le pide mejorar un diseño siempre encuentra qué cambiar, aunque no haga falta. Ese es el camino directo a un proceso que reescribe el CSS cada noche y quema el presupuesto sin que nadie se lo pida.
+
+**Decisión:** la puerta automática del bucle son dos números y nada más:
+
+| Criterio | Medido por | Es opinable |
+|---|---|---|
+| Hallazgos de accesibilidad (WCAG 2 AA) | axe-core | No |
+| Píxeles cambiados respecto de la base | pixelmatch | No |
+
+Si los hallazgos de axe **no bajan**, el bucle se detiene. Si **suben**, se revierte al punto de retorno. Todo lo demás —jerarquía visual, ritmo, criterio— se le manda al humano como imagen por Telegram.
+
+Además, el Diseñador recibe una **lista cerrada de cinco cosas que revisar** (desbordes, contraste, áreas táctiles, espaciados, grilla), no un «mejorá el diseño».
+
+**Consecuencia:** el bucle mejora cosas medibles y admite que el resto no lo puede juzgar. Es menos ambicioso que «un agente que diseña» y por eso termina.
+
+---
+
+## ADR-016 — Las imágenes por Telegram, WhatsApp como aviso
+
+**Contexto:** la idea original era recibir el informe visual por WhatsApp.
+
+**Decisión:** las imágenes van por **Telegram**. WhatsApp queda opcional (`WHATSAPP_MODO`), y si se usa, con un **número secundario**.
+
+**Por qué:**
+
+| Canal | Imágenes | Traba real |
+|---|---|---|
+| Telegram | `sendPhoto`, álbumes de 10 | Ninguna. Ya está en el stack |
+| WhatsApp Cloud API (oficial) | Sí, subiendo el archivo | **Ventana de 24 h**: fuera de ella hace falta una plantilla aprobada, y una plantilla no lleva una captura arbitraria |
+| Puente no oficial (número por QR) | Sí | Viola los términos de servicio; el número puede terminar baneado |
+
+La ventana de 24 horas es la que decide: un informe que sale a las 3 de la mañana, dos días después del último mensaje, **no llega**. Un canal de notificación que a veces no notifica no sirve como canal principal.
+
+**Consecuencia:** un canal menos «natural» para el usuario, a cambio de que el informe llegue siempre. `scripts/reportar.sh` soporta los tres modos: la decisión se puede revisar sin tocar el resto.
+
+---
+
+## ADR-017 — El stage va a la tailnet, no a internet
+
+**Contexto:** para revisar el diseño desde el celular hace falta abrir el sitio en algún lado.
+
+**Decisión:** `tailscale serve` — URL HTTPS visible solo desde los dispositivos de la tailnet. **No** `tailscale funnel`, que la publicaría a internet entero.
+
+**Por qué:** un stage muestra trabajo a medio hacer, generado por un agente y no revisado por nadie. Puede tener claves de prueba en el HTML, endpoints internos o un formulario que escribe en una base real. Publicarlo al mundo por comodidad es la clase de decisión que se lamenta después.
+
+Es además coherente con [ADR-007](#adr-007--telegram-por-polling-sin-abrir-puertos): todo el tráfico del sistema es saliente y no hay un solo puerto redirigido en el router.
+
+**Consecuencia:** para mostrarle el stage a otra persona hay que prender `funnel` deliberadamente para esa sesión y apagarlo. Un paso más, a propósito.
+
+---
+
+## ADR-018 — Un agente Diseñador aparte, y no el Revisor con ojos
+
+**Contexto:** el Revisor ya usa un modelo caro y capaz. Podría mirar las capturas él mismo.
+
+**Decisión:** un sexto agente, `designer`, con su propio modelo de visión barato y su propia clave virtual de 5 USD.
+
+**Por qué:**
+
+1. **Costo.** Nueve imágenes por vuelta, en un modelo caro, son la parte más cara de todo el ciclo. La misma lógica de [ADR-005](#adr-005--modelo-caro-para-pensar-modelos-baratos-para-escribir): el volumen va al modelo barato.
+2. **Presupuesto aislado.** Si el bucle visual se descontrola, quema sus 5 USD y se detiene sin tocar el presupuesto del Revisor, que es quien abre los PRs.
+3. **Tarea distinta.** El Revisor integra ramas, corre gitleaks y decide si se abre un PR. El Diseñador mira píxeles contra una lista de cinco puntos. Juntarlos hace un prompt largo que cumple peor las dos cosas.
+
+**Consecuencia:** un modelo más que mantener y verificar. El requisito es que **acepte imágenes de entrada** — la tarea T057 lo comprueba explícitamente, porque un modelo de solo texto falla acá de forma silenciosa y confusa.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |

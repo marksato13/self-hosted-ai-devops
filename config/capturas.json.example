@@ -1,0 +1,32 @@
+{
+  "_comentario": [
+    "Qué páginas fotografiar y en qué tamaños. Copiar a config/capturas.json.",
+    "Cada ruta se captura una vez por viewport: 3 rutas x 3 viewports = 9 PNG.",
+    "No agregar rutas de más: cada una alarga el bucle y consume tokens del",
+    "agente Diseñador, que tiene que mirar todas las imágenes.",
+    "Ver docs/bucle-visual.md"
+  ],
+
+  "base": "http://stage",
+  "esperar": "networkidle",
+  "reposoMs": 400,
+  "tema": "light",
+  "accesibilidad": true,
+
+  "rutas": [
+    { "nombre": "inicio",  "ruta": "/" },
+    { "nombre": "login",   "ruta": "/login" },
+    {
+      "nombre": "panel",
+      "ruta": "/dashboard",
+      "esperarSelector": "[data-listo]",
+      "paginaCompleta": false
+    }
+  ],
+
+  "viewports": [
+    { "nombre": "movil",       "ancho": 390,  "alto": 844  },
+    { "nombre": "tablet",      "ancho": 834,  "alto": 1112 },
+    { "nombre": "escritorio",  "ancho": 1440, "alto": 900  }
+  ]
+}

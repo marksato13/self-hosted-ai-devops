@@ -134,6 +134,9 @@ Lo que está bien por diseño:
 | Acceso remoto | Tailscale | Red privada, sin exponer la IP de casa |
 | SSH desde internet | No expuesto | Solo por Tailscale |
 | Firewall de la VM | `ufw`, deniega entrante salvo SSH | El sistema no necesita recibir conexiones |
+| Stage del bucle visual | `127.0.0.1:8080` + `tailscale serve` | Privado a la tailnet, nunca `funnel` |
+
+**El stage es la excepción tentadora.** Es la única parte del sistema que da ganas de publicar, porque sirve una página que querés mirar. Muestra trabajo a medio hacer escrito por un agente y sin revisar: puede tener claves de prueba en el HTML, endpoints internos o un formulario que escribe en una base real. Va a la red privada de Tailscale y nada más ([ADR-017](decisiones.md#adr-017--el-stage-va-a-la-tailnet-no-a-internet)).
 
 ```bash
 sudo ufw allow OpenSSH
@@ -183,6 +186,7 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 - [ ] `MAX_RETRIES_PER_TASK` configurado
 - [ ] Snapshot #3 tomado
 - [ ] Sandbox de Codex acotado al workspace
+- [ ] *(si hay bucle visual)* El stage con `tailscale serve`, no `funnel`
 
 ---
 

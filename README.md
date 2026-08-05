@@ -40,11 +40,17 @@ flowchart TD
     OC -->|link + resumen| U
     U -->|aprueba| M["merge a main"]
 
+    R --> V["👁️ Bucle visual<br/>stage + Chromium headless"]
+    V --> DS["Agente Diseñador<br/>perfil designer · GLM-4.5V"]
+    DS -->|propuestas| B
+    V -->|📷 antes / después| OC
+
     B -.-> LL["⚙️ LiteLLM<br/>gateway · presupuestos"]
     T -.-> LL
     D -.-> LL
     P -.-> LL
     R -.-> LL
+    DS -.-> LL
 ```
 
 Los tres agentes del medio trabajan **en paralelo, cada uno en su propio git worktree y su propia rama**. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
@@ -71,7 +77,7 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 
 ---
 
-## Los cinco agentes
+## Los seis agentes
 
 | Agente | Perfil | Modelo | Para qué | Costo |
 |---|---|---|---|---|
@@ -80,6 +86,9 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 | Tests | `tester` | Qwen3.5-coder | Pruebas automatizadas | Barato |
 | Docs | `docs` | GLM-4.5-Air | Documentación | Gratis |
 | Revisor | `reviewer` | GPT-5.1 | Une ramas, valida, abre el PR | Incluido en ChatGPT Plus |
+| Diseñador | `designer` | GLM-4.5V *(visión)* | Mira las capturas y propone arreglos de CSS | Barato |
+
+El Diseñador solo entra si la tarea toca interfaz web — ver **[bucle visual](docs/bucle-visual.md)**.
 
 Cada uno tiene su propia clave virtual en LiteLLM con **5 USD de presupuesto**: si uno entra en bucle, quema lo suyo y se detiene sin arrastrar a los demás.
 
@@ -92,14 +101,15 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
-| [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **45 tareas atómicas** con verificación — para que un agente lo implemente |
+| [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **58 tareas atómicas** con verificación — para que un agente lo implemente |
 | [ESTADO.md](ESTADO.md) | Avance de la implementación, tarea por tarea |
 | [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
+| [docs/bucle-visual.md](docs/bucle-visual.md) | **Capturas sin escritorio, stage publicado e informe con imágenes** |
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
 | [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
-| [docs/decisiones.md](docs/decisiones.md) | 14 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
+| [docs/decisiones.md](docs/decisiones.md) | 18 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
 | [docs/seguridad.md](docs/seguridad.md) | Allowlist de Telegram, secretos, permisos, sandbox |
 | [docs/runbook.md](docs/runbook.md) | Operación diaria, diagnóstico y recuperación |
 | [infra/vm-esxi.md](infra/vm-esxi.md) | Specs y creación de la VM |
@@ -114,7 +124,7 @@ Hay dos caminos al mismo lugar. Elegí uno:
 
 | Si vas a… | Usá |
 |---|---|
-| Dárselo a un agente para que lo implemente | **[docs/plan-ejecucion.md](docs/plan-ejecucion.md)** — 45 tareas atómicas, cada una con su verificación y su acción ante fallo |
+| Dárselo a un agente para que lo implemente | **[docs/plan-ejecucion.md](docs/plan-ejecucion.md)** — 58 tareas atómicas, cada una con su verificación y su acción ante fallo |
 | Hacerlo vos, entendiendo cada paso | **[docs/instalacion.md](docs/instalacion.md)** — 10 fases explicadas |
 
 Para el agente, la instrucción es literalmente:
@@ -126,7 +136,7 @@ Verificá con ./scripts/verificar.sh antes de pasar a la fase siguiente.
 Pará al llegar a una tarea marcada 👤.
 ```
 
-De las 45 tareas, **22 las hace el agente y 23 requieren una persona** — crear la VM en ESXi, hablar con BotFather, obtener claves de API. El plan marca cuál es cuál.
+De las 58 tareas, **32 las hace el agente y 26 requieren una persona** — crear la VM en ESXi, hablar con BotFather, obtener claves de API. El plan marca cuál es cuál.
 
 ---
 
@@ -155,6 +165,7 @@ Y el ciclo de una tarea, ya con todo montado:
 ./scripts/nueva-tarea.sh 12        # crea 3 worktrees, uno por agente
 # …los 3 agentes trabajan en paralelo…
 ./scripts/integrar.sh 12           # une, verifica y abre 1 PR en borrador
+./scripts/bucle-visual.sh 12       # (si es web) mira, corrige y manda la foto
 ./scripts/limpiar-worktrees.sh 12  # limpia al aprobar
 ```
 
@@ -170,6 +181,7 @@ Y el ciclo de una tarea, ya con todo montado:
 | 8 | Codex CLI y los 5 perfiles | Los cinco perfiles responden |
 | 9 | GitHub, gitleaks y primer PR | Desde Telegram logras que abra un PR trivial |
 | 10 | La flota completa | Una tarea genera 3 ramas y **un solo** PR consolidado |
+| 11 | Bucle visual *(opcional)* | Llega al celular la foto del antes y el después |
 
 Logrado cuando se cumplen las 10 y el gasto mensual queda bajo el tope de [docs/modelos.md](docs/modelos.md#topes-de-gasto).
 

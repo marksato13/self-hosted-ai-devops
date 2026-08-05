@@ -1,6 +1,6 @@
 # Perfiles de los agentes
 
-Los cinco roles de la flota. Todos son **el mismo binario** —Codex CLI— invocado con un perfil distinto de `~/.codex/config.toml`. Lo que cambia entre ellos es el modelo, el prompt de sistema, el worktree y los permisos.
+Los seis roles de la flota. Todos son **el mismo binario** —Codex CLI— invocado con un perfil distinto de `~/.codex/config.toml`. Lo que cambia entre ellos es el modelo, el prompt de sistema, el worktree y los permisos.
 
 ---
 
@@ -13,6 +13,7 @@ Los cinco roles de la flota. Todos son **el mismo binario** —Codex CLI— invo
 | 3 | **Tests** | `tester` | Qwen3.5-coder | `issue-<n>-tests/` | `test/issue-<n>` |
 | 4 | **Docs** | `docs` | GLM-4.5-Air | `issue-<n>-docs/` | `docs/issue-<n>` |
 | 5 | **Revisor** | `reviewer` | GPT-5.1 | repo principal | `integra/issue-<n>` + PR en borrador |
+| 6 | **Diseñador** | `designer` | GLM-4.5V *(visión)* | solo lee capturas | ninguna — propone, no escribe |
 
 Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 usan el mismo modelo pero perfiles distintos, para que el gasto de planificar quede separado del de revisar en el registro de LiteLLM.
 
@@ -22,7 +23,7 @@ Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree 
 
 ## 1. Agente Planificador
 
-**Perfil:** `openai` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
+**Perfil:** `planner` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
 
 Recibe la orden en lenguaje natural desde Telegram y la convierte en un plan ejecutable. Es el único que ve el problema completo.
 
@@ -63,7 +64,7 @@ Reglas:
 
 ## 2. Agente Backend
 
-**Perfil:** `deepseek` · **Modelo:** DeepSeek V4 · **Costo:** bajo
+**Perfil:** `backend` · **Modelo:** DeepSeek V4 · **Costo:** bajo
 
 El caballo de batalla. Se lleva la mayor parte de los tokens del sistema, y por eso corre en el modelo económico.
 
@@ -92,7 +93,7 @@ Commits: mensajes en imperativo y en español, una línea.
 
 ## 3. Agente de Tests
 
-**Perfil:** `qwen` · **Modelo:** Qwen3.5-coder · **Costo:** bajo
+**Perfil:** `tester` · **Modelo:** Qwen3.5-coder · **Costo:** bajo
 
 Escribe las pruebas **contra el criterio de aceptación**, no contra la implementación del agente Backend. Esto es deliberado: si escribiera los tests mirando el código, solo confirmaría lo que el código ya hace, incluidos sus errores.
 
@@ -119,7 +120,7 @@ Reglas:
 
 ## 4. Agente de Docs
 
-**Perfil:** `glm` · **Modelo:** GLM-4.5-Air · **Costo:** gratis
+**Perfil:** `docs` · **Modelo:** GLM-4.5-Air · **Costo:** gratis
 
 Mantiene la documentación al día con lo que hicieron los otros dos. Corre en el modelo gratuito porque redactar documentación tolera bien un modelo más liviano.
 
@@ -146,7 +147,7 @@ Reglas:
 
 ## 5. Agente Revisor
 
-**Perfil:** `openai` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
+**Perfil:** `reviewer` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
 
 El portero. Es lo único que separa el trabajo de tres modelos baratos de la rama principal.
 
@@ -186,6 +187,49 @@ NUNCA hagas merge a main. Esa decisión es del usuario.
 
 ---
 
+## 6. Agente Diseñador
+
+**Perfil:** `designer` · **Modelo:** GLM-4.5V (visión) · **Costo:** bajo
+
+El único que **mira**. Recibe las capturas de pantalla del stage en tres tamaños y el informe de accesibilidad, y devuelve cambios concretos de CSS. Solo participa cuando la tarea toca interfaz web.
+
+**Hace:**
+- Revisa las capturas contra una **lista cerrada de cinco puntos**.
+- Devuelve un markdown con un selector y una propiedad por problema.
+- Si no encuentra nada de esa lista, responde `SIN-CAMBIOS` y el bucle termina.
+
+**No hace:** escribir código. Sus propuestas las aplica el agente Backend, en el worktree de la tarea. Tampoco opina sobre paleta, tipografía ni estilo: eso va al humano como imagen ([ADR-015](decisiones.md#adr-015--el-bucle-visual-se-corta-con-accesibilidad-no-con-gusto)).
+
+**Prompt de sistema (base):**
+
+```text
+Eres el Agente Diseñador. Recibes capturas del mismo sitio en tres
+tamaños (móvil 390, tablet 834, escritorio 1440) y un informe de
+accesibilidad generado por axe-core.
+
+Revisa SOLO esta lista, en este orden:
+ 1. Contenido cortado, desbordado o superpuesto en algún tamaño.
+ 2. Texto ilegible por contraste (los hallazgos de axe son la prueba).
+ 3. Áreas táctiles menores a 44x44 px en móvil.
+ 4. Espaciados incoherentes entre elementos equivalentes.
+ 5. Elementos que se salen de la grilla o del ancho del viewport.
+
+Devuelve una sección por problema:
+  ## <problema> · archivo: <ruta> · severidad: alta|media|baja
+  Qué se ve · Qué cambiar (selector CSS y propiedad concreta)
+
+NO opines sobre gusto, paleta, tipografía ni "modernidad".
+NO propongas rediseños. Solo corrige lo de la lista.
+Si no encuentras ningún problema de esa lista, responde exactamente:
+SIN-CAMBIOS
+```
+
+**Por qué la lista es cerrada:** un modelo al que se le pide «mejorá el diseño» siempre encuentra algo que cambiar. Sin una lista acotada y un `SIN-CAMBIOS` explícito, el bucle no termina nunca.
+
+Flujo completo en [bucle-visual.md](bucle-visual.md).
+
+---
+
 ## Límites que aplican a todos
 
 | Límite | Valor | Dónde se aplica |
@@ -222,6 +266,12 @@ El Planificador y el Revisor corren en el repo principal:
 ```bash
 codex --profile planner  "…"
 codex --profile reviewer "…"
+```
+
+El Diseñador se invoca distinto: con imágenes adjuntas.
+
+```bash
+codex --profile designer -i captura-movil.png -i captura-escritorio.png "…"
 ```
 
 Los worktrees se crean con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y el trabajo del Revisor está automatizado en [`scripts/integrar.sh`](../scripts/integrar.sh). Los perfiles salen de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).

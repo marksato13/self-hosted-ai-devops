@@ -1,0 +1,13 @@
+{
+  "name": "shotter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capturas headless y comparacion visual para la flota de agentes",
+  "dependencies": {
+    "playwright": "1.56.0",
+    "@axe-core/playwright": "^4.10.0",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0"
+  }
+}

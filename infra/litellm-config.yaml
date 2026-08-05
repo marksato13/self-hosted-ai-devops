@@ -54,6 +54,20 @@ model_list:
       api_base: https://open.bigmodel.cn/api/paas/v4
       api_key: os.environ/ZHIPU_API_KEY
 
+  # ---------- Diseñador (bucle visual) ----------
+  # 🔴 ÚNICO alias que EXIGE un modelo multimodal: recibe capturas
+  # de pantalla, no texto. Un modelo de solo texto no da error acá,
+  # simplemente responde que no ve nada — y el bucle visual queda
+  # aprobando todo en silencio.
+  # Comprobación obligatoria: plan-ejecucion.md T057
+  - model_name: designer
+    litellm_params:
+      model: openai/glm-4.5v
+      api_base: https://open.bigmodel.cn/api/paas/v4
+      api_key: os.environ/ZHIPU_API_KEY
+    model_info:
+      supports_vision: true
+
 
 # ============================================================
 #  Enrutamiento y frenos
@@ -67,6 +81,9 @@ router_settings:
     - backend: ["planner"]
     - tester: ["planner"]
     - docs: ["planner"]
+    # El respaldo del Diseñador tiene que ver imágenes también:
+    # cae a `planner`, no a un modelo de texto.
+    - designer: ["planner"]
 
   # No reintentar en bucle: un agente colgado quema créditos de noche.
   num_retries: 2

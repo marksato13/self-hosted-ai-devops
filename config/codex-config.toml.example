@@ -100,6 +100,17 @@ model           = "reviewer"
 model_provider  = "gateway"
 approval_policy = "on-failure"
 
+# --- Agente Diseñador ---
+# 🔴 Este perfil DEBE apuntar a un modelo que acepte imágenes de
+# entrada. Uno de solo texto falla acá de forma silenciosa: no da
+# error, simplemente dice que no ve nada. Se comprueba con:
+#   codex --profile designer -i captura.png "¿qué texto se lee?"
+# Ver docs/bucle-visual.md y docs/decisiones.md — ADR-018
+[profiles.designer]
+model           = "designer"
+model_provider  = "gateway"
+approval_policy = "on-failure"
+
 
 # ============================================================
 #  Probar cada perfil POR SEPARADO antes de armar el flujo:
@@ -109,6 +120,9 @@ approval_policy = "on-failure"
 #    codex --profile tester   "responde solo: ok"
 #    codex --profile docs     "responde solo: ok"
 #    codex --profile reviewer "responde solo: ok"
+#
+#  El Diseñador se prueba distinto — con una imagen de verdad:
+#    codex --profile designer -i captura.png "¿qué texto se lee?"
 #
 #  Si uno falla, es problema de ese modelo en LiteLLM y se
 #  arregla solo. Probarlos juntos convierte 5 problemas simples

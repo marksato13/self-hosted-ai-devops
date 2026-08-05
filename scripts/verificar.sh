@@ -7,8 +7,8 @@
 #
 #  Uso:
 #    ./scripts/verificar.sh 5       # verifica la fase 5
-#    ./scripts/verificar.sh all     # todas las fases
-#    ./scripts/verificar.sh T019    # una tarea puntual
+#    ./scripts/verificar.sh 11      # bucle visual
+#    ./scripts/verificar.sh all     # las doce fases
 #
 #  Salida: 0 si todo pasa, 1 si algo falla.
 #  Pensado para que un agente lo corra y lea el código de salida.
@@ -87,12 +87,12 @@ fase5() {
   chk T018 "Gateway responde"              'curl -fsS http://localhost:4000/health/liveliness'
   for m in planner backend tester docs reviewer; do
     chk T019 "Modelo responde: $m" "curl -fsS http://localhost:4000/v1/chat/completions \
-      -H 'Authorization: Bearer $LITELLM_MASTER_KEY' -H 'Content-Type: application/json' \
+      -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' -H 'Content-Type: application/json' \
       -d '{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}]}' \
       | jq -e '.choices[0].message.content'"
   done
   chk T020 "Claves virtuales creadas" "curl -fsS http://localhost:4000/key/list \
-    -H 'Authorization: Bearer $LITELLM_MASTER_KEY' | jq -e '.keys | length >= 5'"
+    -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' | jq -e '.keys | length >= 5'"
 }
 
 fase6() {
@@ -148,6 +148,26 @@ fase10() {
   manual T045 "Checklist de seguridad repasado"
 }
 
+fase11() {
+  echo "── FASE 11 · Bucle visual ──"
+  chk T046 "STAGE_DIR existe"              '[[ -d "${STAGE_DIR:-/nada}" ]]'
+  chk T046 "ARTEFACTOS_DIR existe"         '[[ -d "${ARTEFACTOS_DIR:-/nada}" ]]'
+  chk T047 "Imagen shotter construida"     'docker image inspect shotter:local'
+  chk T048 "Chromium renderiza sin X11"    'test -s "${ARTEFACTOS_DIR:-/nada}/prueba-headless.png"'
+  chk T049 "config/capturas.json presente" 'jq -e ".rutas | length >= 1" "$HOME/self-hosted-ai-devops/config/capturas.json"'
+  chk T050 "Stage responde"                'curl -fsS "http://localhost:${STAGE_PORT:-8080}/salud"'
+  manual T051 "Stage abierto desde el celular"
+  chk T052 "Hay capturas"                  'ls "${ARTEFACTOS_DIR:-/nada}"/*/*.png >/dev/null 2>&1'
+  chk T053 "Línea base fijada"             'test -d "${ARTEFACTOS_DIR:-/nada}/base"'
+  chk T054 "El comparador detecta cambios" 'test -d "${ARTEFACTOS_DIR:-/nada}/cambiado/diff"'
+  manual T055 "Imagen recibida en Telegram"
+  chk T056 "WHATSAPP_MODO definido"        '[[ "${WHATSAPP_MODO:-}" =~ ^(off|cloud|openclaw)$ ]]'
+  chk T057 "Perfil designer definido"      'grep -q "\[profiles.designer\]" "$HOME/.codex/config.toml"'
+  chk T057 "Alias designer en el gateway"  'grep -q "model_name: designer" "$HOME/self-hosted-ai-devops/infra/litellm-config.yaml"'
+  manual T057 "🔴 El modelo LEE la imagen (no solo responde)"
+  chk T058 "scripts del bucle ejecutables" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/bucle-visual.sh"'
+}
+
 case "${1:-all}" in
   0|fase0)   fase0 ;;
   1|fase1)   fase1 ;;
@@ -160,9 +180,10 @@ case "${1:-all}" in
   8|fase8)   fase8 ;;
   9|fase9)   fase9 ;;
   10|fase10) fase10 ;;
-  all)       for f in 0 1 2 3 4 5 6 7 8 9 10; do "fase$f"; echo; done ;;
+  11|fase11) fase11 ;;
+  all)       for f in 0 1 2 3 4 5 6 7 8 9 10 11; do "fase$f"; echo; done ;;
   *)
-    echo "Uso: $0 <0-10|all>" >&2
+    echo "Uso: $0 <0-11|all>" >&2
     exit 64
     ;;
 esac

@@ -31,8 +31,11 @@ Consecuencia práctica: los nombres de perfil de Codex son **alias** definidos e
 | Tests | `tester` | Qwen3.5-coder | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
 | Docs | `docs` | GLM-4.5-Air | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
 | Revisor | `reviewer` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
+| Diseñador | `designer` | GLM-4.5V **(visión)** | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
 
 Las cuatro claves las consume **LiteLLM**. Codex solo necesita `LITELLM_MASTER_KEY`.
+
+El Diseñador reutiliza la clave de Zhipu: son dos modelos del mismo proveedor, uno de texto y uno de visión.
 
 ---
 
@@ -74,6 +77,32 @@ Al evaluar un modelo nuevo, verificar ambas antes que cualquier otra cosa.
 
 ---
 
+## El Diseñador necesita visión
+
+El alias `designer` es el único con un requisito extra: **tiene que aceptar imágenes de entrada**. Recibe capturas de pantalla, no texto.
+
+Esto falla de la peor manera posible si se ignora: un modelo de solo texto **no da error**. Responde educadamente que no puede ver la imagen, el bucle visual interpreta que no hay problemas, y todo queda aprobando pantallas rotas en silencio.
+
+Por eso la comprobación no es «¿responde?» sino «¿lee lo que dice la imagen?»:
+
+```bash
+codex --profile designer -i captura.png "¿Qué texto se lee en esta imagen? Respondé solo el texto."
+```
+
+Si no devuelve el texto que está en la captura, el modelo no sirve para este rol.
+
+| Candidato | Proveedor | Nota |
+|---|---|---|
+| GLM-4.5V | Zhipu / Z.ai | El elegido: barato y misma clave que `docs` |
+| Qwen-VL | Alibaba Bailian | Alternativa, misma clave que `tester` |
+| GPT-5.1 | OpenAI | Respaldo automático vía `fallbacks` de LiteLLM |
+
+Los nombres exactos de modelo cambian seguido: confirmarlos en la consola del proveedor antes de instalar. El alias existe justamente para que cambiar de modelo sea una línea en [`infra/litellm-config.yaml`](../infra/litellm-config.yaml).
+
+Ver [ADR-018](decisiones.md#adr-018--un-agente-diseñador-aparte-y-no-el-revisor-con-ojos) y [bucle-visual.md](bucle-visual.md).
+
+---
+
 ## Topes de gasto
 
 Un agente autónomo con reintentos automáticos puede quemar créditos durante la noche sin que nadie lo note. Tres capas de defensa, en orden de importancia:
@@ -98,6 +127,10 @@ curl -s http://localhost:4000/spend/logs \
 ```
 
 Tope sugerido para empezar: **20 USD/mes** en total, 5 por agente. Con el reparto previsto (85 % del volumen en modelos baratos) debería sobrar.
+
+Las claves virtuales suman más que el tope global a propósito: seis agentes × 5 USD = 30, contra un `max_budget` de 20. Ninguno puede pasarse de lo suyo, y entre todos no pueden pasar de 20. El límite que corta primero es el global.
+
+> Si se activa el [bucle visual](bucle-visual.md), el Diseñador es el que más rápido consume su parte: cada vuelta son nueve imágenes, y las imágenes cuestan bastante más que el texto equivalente. Vale la pena mirar su gasto la primera semana.
 
 ---
 

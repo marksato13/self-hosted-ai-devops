@@ -852,6 +852,321 @@ Repasar el [checklist de seguridad](seguridad.md#checklist-antes-de-dejarlo-corr
 
 ---
 
+# FASE 11 — Bucle visual
+
+Hasta acá la flota escribe código a ciegas. Esta fase le da ojos: capturas de
+pantalla desde una VM sin escritorio, un stage mirable desde el celular y un
+informe con imágenes. Contexto completo en [bucle-visual.md](bucle-visual.md).
+
+**Saltear esta fase es válido** si el proyecto no tiene interfaz web. Todo lo
+anterior funciona sin ella.
+
+---
+
+### T046 · Completar las variables del bucle visual
+**Ejecuta:** 🤖 · **Depende de:** T044 · ♻️
+
+Agregar al `.env` de la VM (los nombres ya están en `.env.example`):
+
+```bash
+cd ~/self-hosted-ai-devops
+cat >> .env <<'EOF'
+STAGE_DIR=/home/USUARIO/workspace/stage
+ARTEFACTOS_DIR=/home/USUARIO/workspace/artefactos
+STAGE_PORT=8080
+STAGE_BUILD_CMD=
+STAGE_DIST_DIR=dist
+UMBRAL_VISUAL=0.1
+WHATSAPP_MODO=off
+EOF
+sed -i "s|/home/USUARIO|$HOME|g" .env
+mkdir -p "$HOME/workspace/stage" "$HOME/workspace/artefactos"
+```
+
+**Verificación:**
+```bash
+set -a && source .env && set +a
+test -d "$STAGE_DIR" && test -d "$ARTEFACTOS_DIR" && echo OK
+```
+
+> `STAGE_BUILD_CMD` queda vacío a propósito: depende del proyecto que se vaya a
+> desarrollar. Un sitio estático no necesita nada; una app React lleva
+> `npm ci && npm run build`.
+
+---
+
+### T047 · Construir la imagen del shotter
+**Ejecuta:** 🤖 · **Depende de:** T046 · ♻️
+
+```bash
+cd ~/self-hosted-ai-devops
+docker compose -f infra/docker-compose.yml \
+               -f infra/docker-compose.visual.yml \
+               --profile visual build shotter
+```
+
+**Verificación:**
+```bash
+docker run --rm --entrypoint npx shotter:local playwright --version
+```
+**Esperado:** imprime la versión de Playwright.
+
+**Si falla:** la descarga son ~2 GB; con poco espacio en disco muere a la mitad.
+`df -h /` debe mostrar al menos 8 GB libres. Si el error es de versión, la de
+`infra/shotter/package.json` tiene que coincidir con el `ARG PW_VERSION` del
+Dockerfile.
+
+---
+
+### T048 · Comprobar que Chromium renderiza sin escritorio
+**Ejecuta:** 🤖 · **Depende de:** T047
+
+Esta es la prueba de que Ubuntu **Server** alcanza: no hay X11 en esta máquina.
+
+```bash
+docker run --rm -v "$ARTEFACTOS_DIR:/salida" --entrypoint node shotter:local -e "
+  const { chromium } = require('/app/node_modules/playwright');
+  (async () => {
+    const b = await chromium.launch({ args: ['--no-sandbox'] });
+    const p = await b.newPage();
+    await p.setContent('<h1 style=font-size:80px>hola</h1>');
+    await p.screenshot({ path: '/salida/prueba-headless.png' });
+    await b.close();
+  })();"
+```
+
+**Verificación:**
+```bash
+test -s "$ARTEFACTOS_DIR/prueba-headless.png" && echo OK
+```
+
+**Si falla:** `--no-sandbox` es obligatorio dentro de Docker. Si el error menciona
+`/dev/shm`, falta el `shm_size` del compose.
+
+---
+
+### T049 · Configurar qué se captura
+**Ejecuta:** 🤖 · **Depende de:** T046 · ♻️
+
+```bash
+cd ~/self-hosted-ai-devops
+cp config/capturas.json.example config/capturas.json
+```
+
+Editar `rutas` para que coincidan con las páginas reales del proyecto. Empezar
+con **una sola ruta**: se agregan después.
+
+**Verificación:**
+```bash
+jq -e '.rutas | length >= 1' config/capturas.json >/dev/null && echo OK
+```
+
+> Cada ruta se captura una vez por viewport. Tres rutas son nueve imágenes por
+> vuelta, y las imágenes las paga el Diseñador en tokens.
+
+---
+
+### T050 · Levantar el stage
+**Ejecuta:** 🤖 · **Depende de:** T049 · ♻️
+
+Con una página de prueba, antes de conectarlo a un worktree real:
+
+```bash
+set -a && source ~/self-hosted-ai-devops/.env && set +a
+echo '<h1>stage vivo</h1>' > "$STAGE_DIR/index.html"
+cd ~/self-hosted-ai-devops
+docker compose -f infra/docker-compose.yml \
+               -f infra/docker-compose.visual.yml \
+               --profile visual up -d stage
+```
+
+**Verificación:**
+```bash
+curl -fsS "http://localhost:${STAGE_PORT}/salud" && echo OK
+```
+
+**Si falla:** `docker compose logs stage --tail 20`. El error más común es
+`STAGE_DIR` inexistente o mal escrito en `.env`.
+
+---
+
+### T051 · Publicar el stage en la tailnet
+**Ejecuta:** ⚙️ · **Depende de:** T050 · ♻️
+
+🤖 En la VM:
+```bash
+sudo tailscale serve --bg --https 8443 "http://127.0.0.1:${STAGE_PORT}"
+tailscale status --json | jq -r '.Self.DNSName'
+```
+
+👤 Abrir `https://<ese-host>:8443` **desde el celular**, con Tailscale encendido.
+
+**Verificación:** el celular muestra «stage vivo».
+
+**Si falla:** verificar que el celular tenga Tailscale activo (es la misma
+condición que el SSH de T011). Si dice que HTTPS no está habilitado, activar
+MagicDNS y certificados en la consola de Tailscale.
+
+> **`serve`, no `funnel`.** `funnel` publicaría el stage a internet entero. Acá
+> se muestra trabajo a medio hacer escrito por un agente.
+> Ver [ADR-017](decisiones.md#adr-017--el-stage-va-a-la-tailnet-no-a-internet).
+
+---
+
+### T052 · Primera captura
+**Ejecuta:** 🤖 · **Depende de:** T050 · ♻️
+
+```bash
+cd ~/workspace/self-hosted-ai-devops
+./scripts/capturar.sh prueba
+```
+
+**Verificación:**
+```bash
+ls "$ARTEFACTOS_DIR/prueba"/*.png | wc -l
+```
+**Esperado:** una imagen por combinación de ruta y viewport (3 rutas × 3
+viewports = 9), más `accesibilidad.json` y `resumen.json`.
+
+**Si falla:** `jq '.fallos' "$ARTEFACTOS_DIR/prueba/resumen.json"` dice cuántas
+rutas no cargaron. Una ruta que da 404 en el stage de prueba es esperable:
+dejar solo `/` en `config/capturas.json` hasta tener el proyecto real.
+
+---
+
+### T053 · Fijar la línea base
+**Ejecuta:** 🤖 · **Depende de:** T052 · ♻️
+
+La referencia contra la que se compara todo después es el estado de `main`.
+
+```bash
+cp -r "$ARTEFACTOS_DIR/prueba" "$ARTEFACTOS_DIR/base"
+```
+
+**Verificación:**
+```bash
+test -d "$ARTEFACTOS_DIR/base" && echo OK
+```
+
+---
+
+### T054 · Comprobar que el comparador detecta un cambio
+**Ejecuta:** 🤖 · **Depende de:** T053
+
+Un comparador que nunca falla no está comparando nada. Se le mete un cambio a
+propósito y **tiene que** verlo.
+
+```bash
+cd ~/workspace/self-hosted-ai-devops
+set -a && source ~/self-hosted-ai-devops/.env && set +a
+
+echo '<h1 style="color:red">stage vivo</h1>' > "$STAGE_DIR/index.html"
+./scripts/capturar.sh cambiado
+./scripts/comparar.sh base cambiado ; RC=$?
+
+echo '<h1>stage vivo</h1>' > "$STAGE_DIR/index.html"     # dejar como estaba
+test $RC -eq 1 && echo "OK: detectó la diferencia" || echo "FALLO: no vio el cambio"
+```
+
+**Esperado:** `OK: detectó la diferencia` y un PNG con el título pintado en rojo
+en `$ARTEFACTOS_DIR/cambiado/diff/`.
+
+**Si dice FALLO:** el umbral está demasiado alto, o las dos capturas salieron
+del mismo HTML porque nginx cacheó. El `nginx.conf` de este repo manda
+`no-store` justamente por esto.
+
+---
+
+### T055 · Reportar una imagen por Telegram
+**Ejecuta:** ⚙️ · **Depende de:** T054 · ♻️
+
+```bash
+cd ~/workspace/self-hosted-ai-devops
+./scripts/reportar.sh "prueba del bucle visual" "$ARTEFACTOS_DIR/base/"*escritorio.png
+```
+
+**Verificación:** 👤 la imagen llega al celular, en el chat del bot.
+
+**Si falla:** un `400 chat not found` es un `chat_id` mal copiado; un
+`403 bot was blocked` significa que bloqueaste tu propio bot.
+
+---
+
+### T056 · Decidir el canal de WhatsApp
+**Ejecuta:** 👤 · **Depende de:** T055
+
+| Opción | Cuándo elegirla |
+|---|---|
+| `WHATSAPP_MODO=off` | **Recomendado.** Telegram ya manda las imágenes |
+| `WHATSAPP_MODO=cloud` | Hay cuenta de Meta Business y se acepta la ventana de 24 h |
+| `WHATSAPP_MODO=openclaw` | Se usa el canal de OpenClaw, con un **número secundario** |
+
+**Verificación:** `WHATSAPP_MODO` tiene un valor de esos tres en `.env`.
+
+> Con la API oficial, fuera de las 24 h desde tu último mensaje **el informe no
+> llega**: hace falta una plantilla aprobada, y una plantilla no lleva una
+> captura arbitraria. Con un puente no oficial sobre tu número personal, el
+> riesgo es el baneo de la cuenta.
+> Ver [ADR-016](decisiones.md#adr-016--las-imágenes-por-telegram-whatsapp-como-aviso).
+
+---
+
+### T057 · Dar de alta el perfil `designer`
+**Ejecuta:** 🤖 · **Depende de:** T031 · ♻️
+
+El modelo del Diseñador tiene que aceptar **imágenes de entrada**. Uno de texto
+no sirve acá, por barato que sea.
+
+```bash
+# 1. El alias ya está en infra/litellm-config.yaml; recargar el gateway
+cd ~/self-hosted-ai-devops
+docker compose -f infra/docker-compose.yml up -d --force-recreate litellm
+
+# 2. Clave virtual con su propio presupuesto
+curl -sS -X POST http://localhost:4000/key/generate \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"models":["designer"],"max_budget":5,"budget_duration":"30d","key_alias":"agente-designer"}'
+```
+
+**Verificación:** el perfil ve de verdad una imagen —
+```bash
+codex --profile designer -i "$ARTEFACTOS_DIR/base/inicio__escritorio.png" \
+  "¿Qué texto se lee en esta imagen? Respondé solo el texto."
+```
+**Esperado:** responde `stage vivo`.
+
+**Si responde que no puede ver imágenes:** el modelo del alias `designer` no es
+multimodal. Cambiarlo en `infra/litellm-config.yaml` por uno de visión y repetir.
+Ver [modelos.md](modelos.md#el-diseñador-necesita-visión).
+
+---
+
+### T058 · La vuelta completa
+**Ejecuta:** 🤖 · **Depende de:** T057
+
+Con un worktree real, ya sobre el proyecto que se esté desarrollando:
+
+```bash
+cd ~/workspace/self-hosted-ai-devops
+./scripts/nueva-tarea.sh 2
+./scripts/bucle-visual.sh 2 --solo-mirar     # primero sin tocar código
+./scripts/bucle-visual.sh 2 --vueltas 1      # después, una vuelta de mejora
+```
+
+**Verificación:** llegan al celular las imágenes de antes y después, y
+`git -C ~/workspace/worktrees/issue-2-backend log --oneline -1` muestra el commit
+de la vuelta.
+
+**Si el bucle revierte:** es el comportamiento correcto cuando la accesibilidad
+empeora. La captura de las dos versiones llega igual al celular para que
+decidas a mano.
+
+**Si falla:** códigos de salida — `1` empeoró y revirtió, `2` configuración,
+`3` el build de la rama se rompió.
+
+---
+
 ## Resumen
 
 | Fase | Tareas | 🤖 Agente | 👤 Persona |
@@ -867,8 +1182,13 @@ Repasar el [checklist de seguridad](seguridad.md#checklist-antes-de-dejarlo-corr
 | 8 · Codex CLI | T028–T031 | 4 | — |
 | 9 · GitHub | T032–T039 | 4 | 4 |
 | 10 · Flota | T040–T045 | 4 | 2 |
-| **Total** | **45** | **22** | **23** |
+| 11 · Bucle visual | T046–T058 | 10 | 3 |
+| **Total** | **58** | **32** | **26** |
 
-Aproximadamente la mitad del trabajo requiere una persona: paneles web, apps de celular y decisiones. El agente no puede crear una VM en ESXi ni hablar con BotFather.
+Casi la mitad del trabajo requiere una persona: paneles web, apps de celular y decisiones. El agente no puede crear una VM en ESXi ni hablar con BotFather.
+
+La fase 11 es la más automatizable de todas —diez tareas de trece— porque para entonces ya existe todo lo que necesita: Docker, el gateway, los perfiles y la tailnet.
 
 **Las tres tareas que no se saltean, pase lo que pase:** T003 (topes de gasto), T027 (allowlist verificada desde otra cuenta) y T036 (el hook bloquea de verdad).
+
+**Y una cuarta, si se hace la fase 11:** T054 — un comparador visual que nunca detecta un cambio no está comparando nada, y todo el bucle queda dando siempre por bueno lo que ve.

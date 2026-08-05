@@ -23,6 +23,7 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 | 8 · Codex CLI | T028–T031 | ⬜ Sin empezar |
 | 9 · GitHub | T032–T039 | ⬜ Sin empezar |
 | 10 · La flota | T040–T045 | ⬜ Sin empezar |
+| 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
 Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 
@@ -97,6 +98,21 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [ ] T044 🤖 Ciclo completo conectado a OpenClaw
 - [ ] T045 👤 Checklist de seguridad repasado
 
+### Fase 11 — Bucle visual *(solo si el proyecto tiene interfaz web)*
+- [ ] T046 🤖 Variables del bucle en `.env` y carpetas creadas
+- [ ] T047 🤖 Imagen `shotter` construida
+- [ ] T048 🤖 Chromium renderiza sin escritorio
+- [ ] T049 🤖 `config/capturas.json` con las rutas reales
+- [ ] T050 🤖 Stage sirviendo en `:8080`
+- [ ] T051 ⚙️ Stage abierto desde el celular por Tailscale
+- [ ] T052 🤖 Primera tanda de capturas
+- [ ] T053 🤖 Línea base fijada
+- [ ] T054 🤖 **El comparador detecta un cambio deliberado**
+- [ ] T055 ⚙️ Imagen recibida en Telegram
+- [ ] T056 👤 Canal de WhatsApp decidido
+- [ ] T057 🤖 Perfil `designer` y prueba de que **ve** la imagen
+- [ ] T058 🤖 Vuelta completa del bucle
+
 ---
 
 ## Las tres que no se saltean
@@ -108,6 +124,7 @@ Si alguna de estas queda sin verificar, el sistema **no** está listo para corre
 | **T003** | Topes de gasto en la consola | Un bucle nocturno quema el crédito |
 | **T027** | Allowlist verificada desde otra cuenta | Un desconocido tiene shell en la VM |
 | **T036** | El hook bloquea de verdad | Un agente commitea una clave en un repo público |
+| **T054** *(si se hace la fase 11)* | El comparador ve un cambio deliberado | El bucle visual aprueba pantallas rotas en silencio |
 
 ---
 

@@ -1,0 +1,85 @@
+# ============================================================
+#  Bucle visual — superposición del stack principal
+# ============================================================
+#  Agrega dos servicios al stack de docker-compose.yml:
+#
+#    stage    — nginx que sirve el build de la rama en revisión
+#    shotter  — Chromium headless que le toma capturas
+#
+#  Van en un `profile` aparte: no arrancan con el `up -d` normal,
+#  solo cuando el bucle visual los necesita.
+#
+#  Uso (siempre con los DOS archivos, para compartir la red):
+#
+#    cd ~/self-hosted-ai-devops
+#    docker compose -f infra/docker-compose.yml \
+#                   -f infra/docker-compose.visual.yml \
+#                   --profile visual up -d stage
+#
+#    docker compose -f infra/docker-compose.yml \
+#                   -f infra/docker-compose.visual.yml \
+#                   run --rm shotter capturar.mjs --etiqueta antes
+#
+#  En la práctica no se escribe esto a mano: lo hacen
+#  scripts/publicar-stage.sh y scripts/capturar.sh.
+#
+#  Ver docs/bucle-visual.md
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  #  stage — el sitio en revisión
+  # ----------------------------------------------------------
+  stage:
+    image: nginx:1.27-alpine
+    container_name: stage
+    profiles: ["visual"]
+    restart: unless-stopped
+    volumes:
+      # El build de la rama. Lo llena scripts/publicar-stage.sh.
+      - ${STAGE_DIR}:/srv:ro
+      - ./stage/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      # Solo local. Se publica a la tailnet con `tailscale serve`,
+      # nunca redirigiendo un puerto del router.
+      - "127.0.0.1:${STAGE_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/salud"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ----------------------------------------------------------
+  #  shotter — el ojo
+  # ----------------------------------------------------------
+  #  No es un servicio que quede corriendo: se ejecuta con
+  #  `run --rm` y termina. Por eso no lleva restart ni puertos.
+  # ----------------------------------------------------------
+  shotter:
+    build:
+      context: ./shotter
+      args:
+        PW_VERSION: ${PW_VERSION:-1.56.0}
+    image: shotter:local
+    container_name: shotter
+    profiles: ["visual"]
+    depends_on:
+      stage:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-America/Lima}
+    volumes:
+      - ../config/capturas.json:/config/capturas.json:ro
+      # Bind mount, no volumen con nombre: los scripts del host
+      # tienen que poder leer los PNG para mandarlos por Telegram.
+      - ${ARTEFACTOS_DIR}:/salida
+    # Chromium necesita más de los 64 MB por defecto de /dev/shm
+    # o revienta al renderizar páginas grandes.
+    shm_size: "1gb"
+    # El contenedor abre páginas web arbitrarias: sin privilegios extra.
+    security_opt:
+      - no-new-privileges:true

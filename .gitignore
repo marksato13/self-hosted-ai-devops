@@ -42,6 +42,16 @@ venv/
 dist/
 build/
 
+# Bucle visual — capturas, diffs e informes generados
+# Son artefactos: se regeneran en cada corrida y pesan.
+# Anclados a la raíz: infra/stage/nginx.conf SÍ se versiona.
+/artefactos/
+/stage/
+*.png
+!docs/**/*.png
+config/capturas.json
+!config/capturas.json.example
+
 # Temporales
 tmp/
 *.tmp

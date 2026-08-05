@@ -499,6 +499,44 @@ El último paso es que OpenClaw dispare esta secuencia al recibir un mensaje, en
 
 ---
 
+## Fase 11 — Bucle visual *(opcional)*
+
+Hasta acá la flota escribe interfaces sin verlas nunca. Esta fase le da ojos:
+Chromium headless dentro de Docker toma capturas del stage, el agente Diseñador
+las mira, el Backend aplica los arreglos y te llega la foto del antes y el
+después al celular.
+
+Se saltea sin consecuencias si el proyecto no tiene interfaz web.
+
+```bash
+# Construir el ojo y probar que renderiza sin escritorio
+docker compose -f infra/docker-compose.yml \
+               -f infra/docker-compose.visual.yml --profile visual build shotter
+
+# El stage, publicado en tu red privada
+./scripts/publicar-stage.sh 12 --tailnet
+
+# El ciclo completo
+./scripts/bucle-visual.sh 12
+```
+
+Tres cosas que conviene entender antes de empezar, y que están explicadas en
+**[bucle-visual.md](bucle-visual.md)**:
+
+- **Ubuntu Server alcanza.** Chromium headless renderiza en memoria; no hace
+  falta escritorio, ni X11, ni Xvfb. Es lo mismo que hace cualquier CI.
+- **El stage va a `tailscale serve`, no a `funnel`.** Privado, no público.
+- **Las imágenes las manda Telegram, no WhatsApp.** La API oficial de WhatsApp
+  tiene una ventana de 24 h que haría que el informe de madrugada no llegue.
+
+Paso a paso atómico: [plan-ejecucion.md — Fase 11](plan-ejecucion.md#fase-11--bucle-visual) (T046–T058).
+
+✅ **Fase 11 lista cuando:** `./scripts/bucle-visual.sh <issue>` te deja en el
+celular la captura de antes y la de después, y el comparador detecta un cambio
+que metiste a propósito.
+
+---
+
 ## Si algo falla
 
 | Síntoma | Dónde mirar |
@@ -512,6 +550,10 @@ El último paso es que OpenClaw dispare esta secuencia al recibir un mensaje, en
 | El bot no responde | `docker compose logs -f openclaw`; revisá el token |
 | El bot responde a desconocidos | 🔴 Pará todo. `TELEGRAM_ALLOWED_CHAT_IDS` mal configurado |
 | Codex da error de `wire_api` | Debe ser `"responses"` y apuntar al gateway, no al proveedor |
+| Chromium no arranca en el contenedor | Falta `--no-sandbox`, o el `shm_size` del compose |
+| El comparador nunca ve diferencias | Umbral muy alto, o nginx cacheando el stage |
+| El Diseñador dice que no ve imágenes | El modelo del alias `designer` no es multimodal → [modelos.md](modelos.md#el-diseñador-necesita-visión) |
+| El stage no abre desde el celular | ¿Tailscale encendido? ¿Se corrió `tailscale serve`? |
 | `git push` rechazado sobre `main` | **Está bien**: `main` está protegida. Hay que ir por un PR |
 | `worktree add` dice que la rama existe | Ya hay una tarea con ese número. Limpiala primero |
 

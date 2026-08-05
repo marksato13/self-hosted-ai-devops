@@ -6,7 +6,7 @@ Codex CLI, Claude Code, Cursor y Aider leen este archivo automáticamente.
 ## Si te pidieron implementar el proyecto
 
 No improvises: seguí [`docs/plan-ejecucion.md`](docs/plan-ejecucion.md), que tiene
-45 tareas atómicas en orden, cada una con su comando de verificación.
+58 tareas atómicas en orden, cada una con su comando de verificación.
 
 1. Leé [`ESTADO.md`](ESTADO.md) para saber en qué tarea quedó el trabajo.
 2. Ejecutá **una tarea a la vez**, en orden.
@@ -25,10 +25,11 @@ aplicación: no hay código que compilar ni tests que correr todavía.
 ## Estructura
 
 ```
-docs/     documentación (la mayor parte del repo)
-infra/    docker-compose de OpenClaw y LiteLLM, specs de la VM
-config/   plantillas de configuración (solo archivos .example)
-scripts/  utilidades de worktrees para el trabajo en paralelo
+docs/           documentación (la mayor parte del repo)
+infra/          docker-compose de OpenClaw y LiteLLM, specs de la VM
+infra/shotter/  imagen con Chromium headless para el bucle visual
+config/         plantillas de configuración (solo archivos .example)
+scripts/        worktrees, integración y bucle visual
 ```
 
 ## Reglas que no se negocian
@@ -41,6 +42,8 @@ scripts/  utilidades de worktrees para el trabajo en paralelo
 3. **Nunca mergear.** El merge lo aprueba una persona, siempre.
 4. **Un agente toca solo los archivos de su subtarea.** Los otros agentes
    están trabajando en paralelo en el mismo repo.
+5. **El stage nunca sale a internet.** Se publica con `tailscale serve`, no
+   con `funnel`, y no se redirige ningún puerto del router.
 
 ## Convenciones
 
