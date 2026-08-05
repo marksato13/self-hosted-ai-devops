@@ -3,6 +3,19 @@
 Instrucciones para los agentes de IA que trabajan en este repositorio.
 Codex CLI, Claude Code, Cursor y Aider leen este archivo automáticamente.
 
+## Si te pidieron implementar el proyecto
+
+No improvises: seguí [`docs/plan-ejecucion.md`](docs/plan-ejecucion.md), que tiene
+45 tareas atómicas en orden, cada una con su comando de verificación.
+
+1. Leé [`ESTADO.md`](ESTADO.md) para saber en qué tarea quedó el trabajo.
+2. Ejecutá **una tarea a la vez**, en orden.
+3. Verificá antes de seguir: `./scripts/verificar.sh <fase>`
+4. No ejecutes las tareas marcadas 👤 — necesitan un navegador, un celular
+   o una decisión de una persona. Al llegar a una, PARÁ y pedila.
+5. Marcá la casilla en `ESTADO.md` al terminar cada tarea verificada.
+6. Si algo falla dos veces, PARÁ y reportá. No inventes una alternativa.
+
 ## Qué es este proyecto
 
 Flota de agentes de IA autohospedada en una VM Ubuntu Server sobre VMware ESXi,

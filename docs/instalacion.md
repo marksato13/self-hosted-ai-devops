@@ -7,6 +7,10 @@ De un ESXi vacío a una flota de cinco agentes abriendo Pull Requests desde el c
 
 Cada fase termina con un **criterio verificable**. Si no se cumple, no pases a la siguiente: los errores de infraestructura se acumulan y después no se sabe cuál rompió qué.
 
+> **¿Se lo vas a dar a un agente para que lo implemente?** Usá [plan-ejecucion.md](plan-ejecucion.md) en su lugar: es el mismo camino partido en 45 tareas atómicas, cada una con su comando de verificación y su acción ante fallo. Este documento explica; ese ordena.
+>
+> Verificación automática en cualquier momento: `./scripts/verificar.sh <fase>`
+
 ---
 
 ## Índice

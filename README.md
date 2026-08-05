@@ -92,7 +92,9 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
-| [docs/instalacion.md](docs/instalacion.md) | **Paso a paso completo**, 10 fases de la VM vacía a la flota |
+| [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **45 tareas atómicas** con verificación — para que un agente lo implemente |
+| [ESTADO.md](ESTADO.md) | Avance de la implementación, tarea por tarea |
+| [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
@@ -103,6 +105,28 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [infra/vm-esxi.md](infra/vm-esxi.md) | Specs y creación de la VM |
 | [AGENTS.md](AGENTS.md) | Reglas del repo que los agentes leen solos |
 | [CONTEXTO-PROYECTO.md](CONTEXTO-PROYECTO.md) | Documento de traspaso para retomar el proyecto |
+
+---
+
+## Cómo implementarlo
+
+Hay dos caminos al mismo lugar. Elegí uno:
+
+| Si vas a… | Usá |
+|---|---|
+| Dárselo a un agente para que lo implemente | **[docs/plan-ejecucion.md](docs/plan-ejecucion.md)** — 45 tareas atómicas, cada una con su verificación y su acción ante fallo |
+| Hacerlo vos, entendiendo cada paso | **[docs/instalacion.md](docs/instalacion.md)** — 10 fases explicadas |
+
+Para el agente, la instrucción es literalmente:
+
+```
+Implementá el proyecto siguiendo docs/plan-ejecucion.md.
+Empezá por la primera tarea sin marcar en ESTADO.md.
+Verificá con ./scripts/verificar.sh antes de pasar a la fase siguiente.
+Pará al llegar a una tarea marcada 👤.
+```
+
+De las 45 tareas, **22 las hace el agente y 23 requieren una persona** — crear la VM en ESXi, hablar con BotFather, obtener claves de API. El plan marca cuál es cuál.
 
 ---
 
