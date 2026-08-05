@@ -210,7 +210,7 @@ Nota de contexto: no había conector de GitHub en el entorno de Cowork usado ini
 
 ## 11. Plan por fases
 
-> **Nota:** el plan por fases del repo (`docs/instalacion.md`) es más detallado: son **10 fases** con criterio verificable cada una. Lo de abajo es el resumen histórico.
+> **Nota:** el plan por fases del repo (`docs/instalacion.md`) es más detallado: son **11 fases** con criterio verificable cada una — la 11 es el [bucle visual](docs/bucle-visual.md), y es opcional. Para ejecutarlo, `docs/plan-ejecucion.md` las descompone en 58 tareas atómicas. Lo de abajo es el resumen histórico.
 
 **Fase 1 — Repo (se puede hacer ya, sin la VM)**
 Inicializar el repo, escribir README y docs, primer commit y push.
