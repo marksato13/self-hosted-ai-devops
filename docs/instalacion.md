@@ -281,7 +281,7 @@ docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gate
 Si la segunda prueba **no** falla como se espera, apagá todo y arreglá la allowlist antes de seguir:
 
 ```bash
-docker compose -f infra/docker-compose.yml down
+docker compose --env-file .env -f infra/docker-compose.yml down
 ```
 
 ✅ **Fase 7 lista cuando:** pasan **las dos** pruebas. Las dos, no solo la primera.
@@ -504,7 +504,8 @@ ciclo. El contrato y la recuperación están en [flujo-github.md](flujo-github.m
 5. Mandar el link del PR por Telegram
 6. `./scripts/limpiar-worktrees.sh <issue>` al aprobar
 
-> **Pendiente de resolver:** si OpenClaw puede invocar estos comandos directamente o hace falta un wrapper. Se define acá, con el sistema ya funcionando a mano — que es el momento correcto para decidirlo.
+La frontera está implementada mediante una cola local: OpenClaw no ejecuta
+Codex ni recibe las credenciales del runner. Ver [ADR-020](decisiones.md#adr-020--cola-local-entre-openclaw-y-el-runner).
 
 ✅ **Fase 10 lista cuando:** una tarea mandada por Telegram genera tres ramas y **un solo** PR consolidado, sin que toques la PC.
 
@@ -558,7 +559,7 @@ que metiste a propósito.
 | LiteLLM no levanta | `docker compose logs litellm`. Suele ser `DATABASE_URL` o Postgres sin arrancar |
 | Un modelo da 404 en LiteLLM | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
 | Un modelo da 401 | Clave mal copiada, o la variable no llegó al contenedor |
-| El bot no responde | `docker compose logs -f openclaw`; revisá el token |
+| El bot no responde | `docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway`; revisá el token y la allowlist |
 | El bot responde a desconocidos | 🔴 Pará todo. `TELEGRAM_ALLOWED_CHAT_IDS` mal configurado |
 | Codex da error de `wire_api` | Debe ser `"responses"` y apuntar al gateway, no al proveedor |
 | Chromium no arranca en el contenedor | Falta `--no-sandbox`, o el `shm_size` del compose |

@@ -189,7 +189,7 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 
 | Componente | Dónde vive | Se reinicia con |
 |---|---|---|
-| OpenClaw | Contenedor Docker | `docker compose restart openclaw` |
+| OpenClaw | Contenedor Docker | `docker compose restart openclaw-gateway` |
 | LiteLLM | Contenedor Docker | `docker compose restart litellm` |
 | Postgres (gasto, claves virtuales) | Contenedor + volumen `postgres-data` | Sobrevive a todo salvo borrar el volumen |
 | Codex CLI | Binario en el host de la VM, no en contenedor | No aplica: se invoca por tarea |
@@ -198,7 +198,8 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | Workspace y worktrees | `~/workspace/` | Se reclona sin perder nada |
 | Capturas y línea base | `~/workspace/artefactos/` | Se regeneran; solo `base/` conviene conservar |
 | Secretos | `~/self-hosted-ai-devops/.env`, permisos `600` | Se restauran a mano |
-| Estado de tareas | Volumen `openclaw-data` | Sobrevive al reinicio del contenedor |
+| Estado de OpenClaw | `${OPENCLAW_CONFIG_DIR}` | Configuración, sesiones y memoria persistente |
+| Estado del runner | `${AI_STATE_DIR}` | Cola, logs, planes y resultados por issue |
 
 **Punto sin resolver:** dónde queda exactamente la memoria persistente de tareas entre reinicios de OpenClaw. Verificar al llegar a la Fase 6 y documentar aquí.
 

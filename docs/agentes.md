@@ -276,4 +276,6 @@ codex --profile designer -i captura-movil.png -i captura-escritorio.png "…"
 
 Los worktrees se crean con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y el trabajo del Revisor está automatizado en [`scripts/integrar.sh`](../scripts/integrar.sh). Los perfiles salen de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).
 
-> **Pendiente de resolver:** si OpenClaw invoca estos comandos directamente o hace falta un wrapper. Se define en la Fase 10, con el flujo ya funcionando a mano.
+> **Implementado:** OpenClaw escribe una solicitud numérica mediante
+> `solicitar-issue`; el runner del host procesa la cola. Ver
+> [flujo-github.md](flujo-github.md) y ADR-020.

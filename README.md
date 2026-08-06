@@ -4,7 +4,7 @@ Flota personal de agentes de IA, **autohospedada**, comandada desde el celular p
 
 Combina un modelo caro para **planificar y revisar** con modelos chinos baratos o gratuitos para **ejecutar**, de modo que el volumen de tokens se lo lleven los modelos económicos.
 
-> **Estado:** diseño cerrado · implementación no iniciada · última actualización 2026-08-05
+> **Estado:** runner y CI implementados · despliegue en VM pendiente · última actualización 2026-08-06
 
 ---
 
