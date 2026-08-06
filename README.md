@@ -101,6 +101,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
+| [docs/arranque.md](docs/arranque.md) | **Empezá acá** — los comandos manuales hasta que Codex toma el control |
 | [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **63 tareas atómicas** con verificación — para que un agente lo implemente |
 | [ESTADO.md](ESTADO.md) | Avance de la implementación, tarea por tarea |
 | [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
@@ -120,9 +121,9 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 ## Cómo implementarlo
 
-**Empezá por la [Fase 00](docs/plan-ejecucion.md#fase-00--el-implementador):** instalar el Codex CLI que va a ejecutar el plan. Se hace **en tu PC**, no en la VM — que todavía no existe. Son cinco tareas y quince minutos.
+**Empezá por [docs/arranque.md](docs/arranque.md):** los comandos que corrés a mano hasta que Codex CLI puede tomar el control. Es el único tramo que no se automatiza — no hay agente todavía que lo haga.
 
-Hay dos caminos al mismo lugar. Elegí uno:
+Después, hay dos caminos al mismo lugar. Elegí uno:
 
 | Si vas a… | Usá |
 |---|---|

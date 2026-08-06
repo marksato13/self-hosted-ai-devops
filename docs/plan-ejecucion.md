@@ -49,9 +49,11 @@ Cada fase tiene su verificación agrupada:
 
 # FASE 00 — El implementador
 
-**Esta fase se hace en tu PC, no en la VM.** La VM todavía no existe.
-
 Instala el Codex CLI que va a **ejecutar este plan**. Sin él, las 58 tareas siguientes las hacés a mano.
+
+> 📍 **Si ya tenés la VM andando**, seguí [docs/arranque.md](arranque.md) en vez de esta fase: instala el implementador **dentro de la VM**, que es lo más simple, e incluye el rodeo para hacer `codex login` en un servidor sin navegador. Esta fase describe la variante en tu PC.
+
+**La variante de esta fase se hace en tu PC**, y sirve cuando la VM todavía no existe: así el implementador te acompaña también en las fases 0, 1 y 2, y sobrevive a revertir un snapshot.
 
 ### 🔴 Hay dos Codex en este proyecto. No son el mismo
 
