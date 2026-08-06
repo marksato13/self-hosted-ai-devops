@@ -3,6 +3,8 @@
 Qué modelo usa cada agente, de dónde sale la clave y cuánto cuesta.
 
 > ⚠️ **Antes de configurar nada:** los nombres de modelo, endpoints y precios de este documento vienen de la investigación de diseño y **no están verificados contra las consolas oficiales**. Los proveedores renombran modelos y cambian precios seguido. Confirmá cada fila en la documentación del proveedor antes de pegar una clave, y actualizá esta tabla con lo que encuentres.
+>
+> Atajo útil: el catálogo [FREE_TIERS.md de OmniRoute](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/FREE_TIERS.md) se re-audita cada dos semanas e incluye, por proveedor, la cuota gratuita real **y qué dice su ToS sobre usarlo detrás de un proxy** — que es la letra chica que importa acá. De ahí salen dos datos que esta tabla no tenía: `chutes` cerró su capa gratuita en marzo de 2026 y `aimlapi` la dejó en pausa. No adoptamos OmniRoute como gateway ([ADR-019](decisiones.md#adr-019--omniroute-evaluado-litellm-se-queda)), pero su catálogo sirve igual.
 
 ---
 

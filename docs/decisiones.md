@@ -286,6 +286,42 @@ Es además coherente con [ADR-007](#adr-007--telegram-por-polling-sin-abrir-puer
 
 ---
 
+## ADR-019 — OmniRoute evaluado, LiteLLM se queda
+
+**Contexto:** [OmniRoute](https://github.com/diegosouzapw/OmniRoute) es un gateway MIT que ocupa **exactamente el mismo lugar** que LiteLLM: un endpoint compatible con OpenAI, con enrutado, fallbacks y presupuestos. No es un complemento, es un reemplazo. Y trae tres cosas que a este proyecto le sirven de verdad: expone Responses API en `/v1` (el requisito de [ADR-010](#adr-010--litellm-como-gateway-de-modelos)), trae decenas de proveedores con capa gratuita ya cableados, y comprime las salidas de herramientas.
+
+**Decisión:** **no se adopta por ahora.** LiteLLM sigue siendo el gateway. Se revisa después de que el sistema haya corrido estable, no antes.
+
+**Por qué:**
+
+| Motivo | Detalle |
+|---|---|
+| **Edad contra rol** | Repo creado el 13-feb-2026: seis meses y ~6.200 commits. Todo el tráfico de la flota pasa por el gateway, de noche y sin nadie mirando. En el camino crítico, aburrido es una virtud |
+| **Bus factor** | 3.806 commits del autor principal; el siguiente contribuidor tiene 216 |
+| **La compresión es un modo de falla silencioso** | Comprimir 89 % de la salida de herramientas es excelente para un chat. El Backend lee archivos y aplica parches: un contexto con pérdida lo degrada **sin dar error**, igual que los casos de T054 y T057 |
+| **Los tiers gratis traen su letra chica** | El propio proyecto publica una tabla de ToS donde varios proveedores **prohíben explícitamente el uso vía proxy**. Una cuenta cortada a mitad de una corrida nocturna es una tarea fallada |
+| **Altura** | La configuración actual son 40 líneas de YAML que se entienden enteras. Lo otro es Next.js + SQLite + Redis + Electron + modelos ONNX |
+
+El «TLS fingerprint stealth» (JA3/JA4) es una función para evadir la detección de bots del proveedor. Está documentada y es opcional, pero no es algo para dejar corriendo desatendido contra cuentas que importan.
+
+**Lo que sí se toma:** su [`docs/reference/FREE_TIERS.md`](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/FREE_TIERS.md) es un catálogo re-auditado de qué proveedor tiene capa gratuita y qué dice su ToS. Responde la advertencia que abre [modelos.md](modelos.md).
+
+**Cómo se revierte esta decisión** (si en la Fase 12 conviene): OmniRoute **detrás** de LiteLLM, como un proveedor más, no en lugar de él —
+
+```yaml
+  - model_name: docs
+    litellm_params:
+      model: openai/glm-4.5-air
+      api_base: http://omniroute:20128/v1   # ← en vez de la consola del proveedor
+      api_key: os.environ/OMNIROUTE_KEY
+```
+
+Codex le sigue hablando a LiteLLM, los presupuestos y fallbacks no se tocan, y la prueba se hace en `docs`, que es el agente de menor riesgo. Si funciona, sube a `tester`. Si no, es una línea que se borra.
+
+**Consecuencia:** se paga la API en lugar de usar capas gratuitas que podrían salir 0. Es el precio de que el centro del sistema sea la parte más aburrida.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
@@ -295,5 +331,6 @@ Es además coherente con [ADR-007](#adr-007--telegram-por-polling-sin-abrir-puer
 | ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 6 |
 | ¿Conviene un hilo de Telegram por tarea, como hace takopi? | Evaluar cuando haya varias tareas concurrentes |
 | ¿Correr al Revisor también como check de CI, con codex-action? | Después de la Fase 9 |
+| ¿Vale la pena OmniRoute detrás de LiteLLM, por las capas gratuitas? | Fase 12, con datos de consumo reales — [ADR-019](#adr-019--omniroute-evaluado-litellm-se-queda) |
 
 *(Resuelta: ¿clones o worktrees? → worktrees, ADR-011.)*

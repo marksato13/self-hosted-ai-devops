@@ -109,7 +109,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
 | [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
-| [docs/decisiones.md](docs/decisiones.md) | 18 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
+| [docs/decisiones.md](docs/decisiones.md) | 19 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
 | [docs/seguridad.md](docs/seguridad.md) | Allowlist de Telegram, secretos, permisos, sandbox |
 | [docs/runbook.md](docs/runbook.md) | Operación diaria, diagnóstico y recuperación |
 | [infra/vm-esxi.md](infra/vm-esxi.md) | Specs y creación de la VM |
