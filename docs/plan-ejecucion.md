@@ -47,6 +47,145 @@ Cada fase tiene su verificación agrupada:
 
 ---
 
+# FASE 00 — El implementador
+
+**Esta fase se hace en tu PC, no en la VM.** La VM todavía no existe.
+
+Instala el Codex CLI que va a **ejecutar este plan**. Sin él, las 58 tareas siguientes las hacés a mano.
+
+### 🔴 Hay dos Codex en este proyecto. No son el mismo
+
+Confundirlos es el error que más tiempo cuesta después, porque los síntomas aparecen recién en la Fase 8.
+
+| | **Codex implementador** (esta fase) | **Codex de la flota** (T028) |
+|---|---|---|
+| Dónde vive | Tu PC (Windows nativo, WSL, Linux o macOS) | Dentro de la VM |
+| Se autentica con | Tu suscripción **ChatGPT Plus** (`codex login`) | Una clave virtual de **LiteLLM** |
+| Perfiles | Ninguno: usa el que viene por defecto | `planner`, `backend`, `tester`, `docs`, `reviewer`, `designer` |
+| Para qué sirve | Montar este sistema | Escribir código en el repositorio objetivo |
+| Si se pierde | Lo reinstalás y seguís donde ibas | Lo rehace T028 |
+
+**No copies `config/codex-config.toml.example` en tu PC.** Ese archivo apunta a `http://localhost:4000`, que es LiteLLM **dentro de la VM** y no existirá hasta T018. En tu PC, el implementador usa la configuración por defecto y la suscripción.
+
+### Por qué en la PC y no dentro de la VM
+
+1. **La VM no existe hasta T005.** Alguien tiene que hacer las fases 0, 1 y 2.
+2. **Los snapshots.** Snapshot #1 y #2 existen para poder volver atrás. Si el implementador vive dentro de la VM, revertir un snapshot lo borra a mitad del trabajo.
+3. **Separación.** El implementador *configura* la flota; no es parte de ella.
+
+A partir de la Fase 3, el implementador trabaja contra la VM por SSH (`ssh ai-devops "…"`), que queda disponible con Tailscale en T010–T011.
+
+---
+
+### T00A · Comprobar si ya está instalado
+**Ejecuta:** 👤 · **Depende de:** — · ♻️
+
+Antes de instalar nada, mirá si ya lo tenés. Codex CLI tiene instalador **nativo de Windows**: no siempre hace falta WSL.
+
+```bash
+codex --version
+node --version
+```
+
+**Verificación:** si `codex` devuelve una versión y `node` es v22 o superior, **saltá a T00C**.
+
+**Esperado:** en una PC donde ya se usó Codex, ambos responden. En una limpia, `command not found` — seguí por T00B.
+
+---
+
+### T00B · Instalar Codex CLI
+**Ejecuta:** 👤 · **Depende de:** T00A · ♻️
+
+Tres caminos según tu sistema. **Elegí uno solo.**
+
+| Sistema | Cómo |
+|---|---|
+| **Windows** | Instalador nativo desde https://developers.openai.com/codex — queda en `%LOCALAPPDATA%\Programs\OpenAI\Codex` |
+| **Linux / macOS** | `sudo npm i -g @openai/codex` (requiere Node 22+) |
+| **Windows con WSL** | Igual que Linux, dentro de la distribución |
+
+Si vas por npm y no tenés Node 22+:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**Verificación:**
+```bash
+codex --version && echo OK
+```
+
+**Esperado:** un número de versión y `OK`.
+
+**Si falla:** con `EACCES` en npm, no lo arregles repitiendo `sudo npm`: configurá un prefijo propio con `npm config set prefix ~/.npm-global` y agregá `~/.npm-global/bin` al `PATH`. Si en Windows el comando no aparece tras instalar, cerrá y reabrí la terminal — el `PATH` no se recarga solo.
+
+> ⚠️ **El nativo de Windows y el de WSL son instalaciones distintas**, con sesión y configuración separadas. Tener los dos y no saber cuál corriste es una fuente de confusión evitable: quedate con uno.
+
+---
+
+### T00C · Autenticar con la suscripción
+**Ejecuta:** 👤 · **Depende de:** T00B · ♻️
+
+```bash
+codex login
+```
+
+Abre el navegador. Iniciar sesión con la **misma cuenta que tiene ChatGPT Plus**.
+
+**Verificación:**
+```bash
+codex "responde solo con la palabra: ok"
+```
+
+**Esperado:** responde `ok`. Esa respuesta prueba las tres cosas a la vez: el binario corre, la sesión es válida y hay cuota disponible.
+
+**Si falla:** confirmar los subcomandos con `codex --help` — cambian entre versiones. Si el navegador no abre solo (habitual en WSL), copiar la URL que imprime y pegarla a mano en Windows.
+
+> 💡 Esto **no consume** tus claves de API. El implementador va por la suscripción que ya pagás; las cuatro claves de T002 son para la flota, no para él.
+
+---
+
+### T00D · Clonar el repositorio en la PC
+**Ejecuta:** 👤 · **Depende de:** T00B · ♻️
+
+```bash
+git clone https://github.com/marksato13/self-hosted-ai-devops.git
+cd self-hosted-ai-devops
+```
+
+**Verificación:**
+```bash
+test -f docs/plan-ejecucion.md && test -f scripts/verificar.sh && echo OK
+```
+
+**Esperado:** `OK`.
+
+**Si falla:** revisar la URL del repositorio y que haya `git` instalado (`sudo apt-get install -y git`).
+
+---
+
+### T00E · Comprobar que el implementador entiende el plan
+**Ejecuta:** 🤖 · **Depende de:** T00C, T00D · ♻️
+
+Desde la raíz del repositorio:
+
+```bash
+codex "Leé docs/plan-ejecucion.md. Sin ejecutar nada, decime: \
+cuál es la primera tarea que te toca a vos (🤖) y cuáles son \
+todas las 👤 que tienen que estar hechas antes."
+```
+
+**Verificación:** la respuesta nombra **T007** como su primera tarea, y menciona T001–T006 como requisitos previos.
+
+**Esperado:** eso exactamente. Si nombra T001 como suya, no leyó la leyenda ni el contrato de ejecución.
+
+**Si falla:** confirmar que se ejecutó desde la raíz del repo y que el archivo existe. Si el modelo responde sin haber leído el archivo, hay que darle permiso de lectura del directorio — revisar el modo de aprobación con `codex --help`.
+
+> ⚠️ **Antes de soltarlo a ejecutar.** Codex necesita permiso para correr comandos y editar archivos, y los modos de aprobación (`--full-auto` y similares) cambian entre versiones: confirmalos con `codex --help` antes de usarlos. Arrancá con aprobación manual hasta que veas cómo se comporta. El [contrato de ejecución](#contrato-de-ejecución) de arriba es lo que evita que se adelante.
+
+---
+
 # FASE 0 — Preparación
 
 Sin esto no se puede empezar. Todo es 👤.
@@ -1171,6 +1310,7 @@ decidas a mano.
 
 | Fase | Tareas | 🤖 Agente | 👤 Persona |
 |---|---|---|---|
+| **00 · El implementador** | **T00A–T00E** | **1** | **4** |
 | 0 · Preparación | T001–T004 | — | 4 |
 | 1 · VM ESXi | T005–T006 | — | 2 |
 | 2 · Ubuntu | T007–T009 | 2 | 1 |
@@ -1183,9 +1323,11 @@ decidas a mano.
 | 9 · GitHub | T032–T039 | 4 | 4 |
 | 10 · Flota | T040–T045 | 4 | 2 |
 | 11 · Bucle visual | T046–T058 | 10 | 3 |
-| **Total** | **58** | **32** | **26** |
+| **Total** | **63** | **33** | **30** |
 
 Casi la mitad del trabajo requiere una persona: paneles web, apps de celular y decisiones. El agente no puede crear una VM en ESXi ni hablar con BotFather.
+
+La Fase 00 es la única que se hace **fuera de la VM**: instala al Codex que ejecuta todo lo demás. Sus cuatro tareas 👤 son inevitables — nadie puede instalar al implementador salvo vos.
 
 La fase 11 es la más automatizable de todas —diez tareas de trece— porque para entonces ya existe todo lo que necesita: Docker, el gateway, los perfiles y la tailnet.
 

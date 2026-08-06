@@ -101,7 +101,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
-| [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **58 tareas atómicas** con verificación — para que un agente lo implemente |
+| [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **63 tareas atómicas** con verificación — para que un agente lo implemente |
 | [ESTADO.md](ESTADO.md) | Avance de la implementación, tarea por tarea |
 | [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
 | [docs/bucle-visual.md](docs/bucle-visual.md) | **Capturas sin escritorio, stage publicado e informe con imágenes** |
@@ -120,11 +120,13 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 ## Cómo implementarlo
 
+**Empezá por la [Fase 00](docs/plan-ejecucion.md#fase-00--el-implementador):** instalar el Codex CLI que va a ejecutar el plan. Se hace **en tu PC**, no en la VM — que todavía no existe. Son cinco tareas y quince minutos.
+
 Hay dos caminos al mismo lugar. Elegí uno:
 
 | Si vas a… | Usá |
 |---|---|
-| Dárselo a un agente para que lo implemente | **[docs/plan-ejecucion.md](docs/plan-ejecucion.md)** — 58 tareas atómicas, cada una con su verificación y su acción ante fallo |
+| Dárselo a un agente para que lo implemente | **[docs/plan-ejecucion.md](docs/plan-ejecucion.md)** — 63 tareas atómicas, cada una con su verificación y su acción ante fallo |
 | Hacerlo vos, entendiendo cada paso | **[docs/instalacion.md](docs/instalacion.md)** — 10 fases explicadas |
 
 Para el agente, la instrucción es literalmente:
@@ -136,7 +138,7 @@ Verificá con ./scripts/verificar.sh antes de pasar a la fase siguiente.
 Pará al llegar a una tarea marcada 👤.
 ```
 
-De las 58 tareas, **32 las hace el agente y 26 requieren una persona** — crear la VM en ESXi, hablar con BotFather, obtener claves de API. El plan marca cuál es cuál.
+De las 63 tareas, **33 las hace el agente y 30 requieren una persona** — crear la VM en ESXi, hablar con BotFather, obtener claves de API. El plan marca cuál es cuál.
 
 ---
 

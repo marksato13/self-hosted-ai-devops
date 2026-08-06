@@ -6,9 +6,10 @@
 #  Es la contraparte ejecutable de docs/plan-ejecucion.md.
 #
 #  Uso:
+#    ./scripts/verificar.sh 00      # el implementador — SE CORRE EN TU PC
 #    ./scripts/verificar.sh 5       # verifica la fase 5
 #    ./scripts/verificar.sh 11      # bucle visual
-#    ./scripts/verificar.sh all     # las doce fases
+#    ./scripts/verificar.sh all     # las doce fases de la VM (no incluye la 00)
 #
 #  Salida: 0 si todo pasa, 1 si algo falla.
 #  Pensado para que un agente lo corra y lea el código de salida.
@@ -39,6 +40,16 @@ chk() {
 manual() {
   printf '  %-6s %-46s ' "$1" "$2"
   gris "manual"; ((OMITIDO++))
+}
+
+# Se corre en la PC, no en la VM: es la única fase de afuera.
+fase00() {
+  echo "── FASE 00 · El implementador (en tu PC) ──"
+  chk T00A "Node.js 22 o superior"         'node --version | grep -qE "^v(2[2-9]|[3-9][0-9])\."'
+  chk T00B "Codex CLI instalado"           'codex --version'
+  manual T00C "Sesión de ChatGPT activa (codex login)"
+  chk T00D "Repositorio clonado"           'test -f docs/plan-ejecucion.md'
+  manual T00E "El implementador leyó el plan y dice T007"
 }
 
 fase0() {
@@ -169,6 +180,7 @@ fase11() {
 }
 
 case "${1:-all}" in
+  00|fase00) fase00 ;;
   0|fase0)   fase0 ;;
   1|fase1)   fase1 ;;
   2|fase2)   fase2 ;;
@@ -181,9 +193,11 @@ case "${1:-all}" in
   9|fase9)   fase9 ;;
   10|fase10) fase10 ;;
   11|fase11) fase11 ;;
+  # `all` cubre las fases de la VM. La 00 se pide aparte y a propósito:
+  # se verifica en la PC, y desde la VM daría FALLA sin significar nada.
   all)       for f in 0 1 2 3 4 5 6 7 8 9 10 11; do "fase$f"; echo; done ;;
   *)
-    echo "Uso: $0 <0-11|all>" >&2
+    echo "Uso: $0 <00|0-11|all>" >&2
     exit 64
     ;;
 esac

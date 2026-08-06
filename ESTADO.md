@@ -12,6 +12,7 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 
 | Fase | Tareas | Estado |
 |---|---|---|
+| **00 · El implementador** | **T00A–T00E** | ⬜ Sin empezar · *en tu PC* |
 | 0 · Preparación | T001–T004 | ⬜ Sin empezar |
 | 1 · VM en ESXi | T005–T006 | ⬜ Sin empezar |
 | 2 · Ubuntu Server | T007–T009 | ⬜ Sin empezar |
@@ -30,6 +31,13 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 ---
 
 ## Tareas
+
+### Fase 00 — El implementador *(en tu PC, no en la VM)*
+- [ ] T00A 👤 Comprobar si Codex y Node 22+ ya están instalados
+- [ ] T00B 👤 Codex CLI instalado (nativo de Windows, o npm en Linux/WSL)
+- [ ] T00C 👤 `codex login` con la cuenta de ChatGPT Plus
+- [ ] T00D 👤 Repositorio clonado en la PC
+- [ ] T00E 🤖 El implementador lee el plan y responde «T007»
 
 ### Fase 0 — Preparación
 - [ ] T001 👤 ISO de Ubuntu Server 24.04 en el datastore
