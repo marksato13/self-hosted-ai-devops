@@ -12,7 +12,7 @@ C=infra/docker-compose.yml
 
 docker compose -f $C ps               # ¿están los 3 servicios?
 docker compose -f $C logs -f          # logs en vivo (Ctrl+C para salir)
-docker compose -f $C logs -f openclaw # solo el orquestador
+docker compose --env-file .env -f $C logs -f openclaw-gateway # solo el orquestador
 docker compose -f $C logs -f litellm  # solo el gateway
 docker compose -f $C restart          # reiniciar todo
 docker compose -f $C down             # 🛑 parada de emergencia

@@ -119,7 +119,7 @@ fase7() {
   chk T024 "OPENCLAW_IMAGE definida"       '[[ -n "${OPENCLAW_IMAGE:-}" ]]'
   chk T025 "Contenedor postgres arriba"    'docker ps --format "{{.Names}}" | grep -q litellm-db'
   chk T025 "Contenedor litellm arriba"     'docker ps --format "{{.Names}}" | grep -qx litellm'
-  chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw'
+  chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw-gateway'
   manual T026 "El bot responde a tu cuenta"
   manual T027 "🔴 El bot IGNORA a otra cuenta"
 }
@@ -130,9 +130,9 @@ fase8() {
   chk T029 "config.toml presente"          'test -f "$HOME/.codex/config.toml"'
   chk T029 "wire_api = responses"          'grep -q "wire_api = \"responses\"" "$HOME/.codex/config.toml"'
   chk T029 "Apunta al gateway local"       'grep -q "localhost:4000" "$HOME/.codex/config.toml"'
-  chk T030 "Variables en el entorno"       '[[ -n "${LITELLM_MASTER_KEY:-}" ]]'
+  chk T030 "Clave planner en el entorno"   '[[ -n "${LITELLM_KEY_PLANNER:-}" ]]'
   for p in planner backend tester docs reviewer; do
-    chk T031 "Perfil definido: $p"         "grep -q '\[profiles.$p\]' \"\$HOME/.codex/config.toml\""
+    chk T031 "Perfil definido: $p"         "test -f \"\$HOME/.codex/$p.config.toml\""
   done
 }
 
