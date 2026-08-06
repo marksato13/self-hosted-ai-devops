@@ -36,7 +36,8 @@ El repo es **público**. Un token commiteado queda en el historial de git aunque
 | `.env` en `.gitignore` desde el primer commit | Ya está en este repo |
 | `.env.example` con nombres, sin valores | Ya está |
 | `~/.codex/config.toml` fuera del repo | Solo se versiona el `.example` |
-| Permisos `600` en archivos con claves | `chmod 600 .env ~/.codex/config.toml` |
+| `~/.codex/auth.json` nunca se versiona ni se comparte | Es la sesión de tu cuenta de ChatGPT |
+| Permisos `600` en archivos con claves | `chmod 600 .env ~/.codex/config.toml ~/.codex/auth.json` |
 | El Revisor revisa el diff buscando secretos | En su prompt de sistema |
 
 **Si una clave se filtra:** revocala en la consola del proveedor. Borrarla del archivo o reescribir el historial **no** sirve: hay que asumir que ya fue leída.
@@ -198,5 +199,6 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 | Token de Telegram filtrado | `/revoke` en BotFather → nuevo token en `.env` → reiniciar |
 | Clave de API filtrada | Revocarla en la consola del proveedor → generar otra |
 | Token de GitHub filtrado | Revocarlo en GitHub → revisar commits y PRs recientes del repo |
+| `auth.json` de Codex filtrado | `codex logout` en todos lados → cerrar sesión en chatgpt.com → volver a entrar |
 | Un agente escribió algo raro en el repo | `main` está protegida: cerrá el PR sin mergear |
 | La VM se comporta raro | Restaurar el snapshot #3 |

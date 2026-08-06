@@ -193,14 +193,104 @@ Donde `<puerto>` es el que aparece en la URL que imprimió `codex login` (algo c
 
 **Verificación:**
 ```bash
+codex login status
+```
+**Esperado:** `Logged in using ChatGPT`
+
+Y la prueba de que además sirve:
+```bash
 codex "responde solo con la palabra: ok"
 ```
 
-**Esperado:** responde `ok`. Eso prueba tres cosas de una vez: el binario corre, la sesión es válida y hay cuota.
-
-> ⚠️ Los subcomandos y puertos de `codex login` cambian entre versiones. Si algo no coincide con lo de arriba, confirmá con `codex --help` antes de improvisar.
+Eso prueba tres cosas de una vez: el binario corre, la sesión es válida y hay cuota.
 
 > 💡 Esto usa tu **suscripción de ChatGPT Plus**, no las claves de API. Las cuatro claves son para la flota, no para el implementador.
+
+---
+
+### 8b. Si el túnel no funciona
+
+Es el paso más frágil del arranque. Hay tres salidas, de mejor a peor. **Probalas en orden.**
+
+#### Plan B — Copiar la sesión desde tu PC
+
+El más limpio: si ya tenés Codex funcionando en tu PC, la sesión vive en un archivo. Se copia y listo.
+
+```bash
+# Desde tu PC (Linux/macOS/WSL), con Tailscale ya andando:
+scp ~/.codex/auth.json m4rk@<IP-tailscale>:~/.codex/auth.json
+```
+
+En **Windows** con el Codex nativo, el archivo está en:
+
+```
+%USERPROFILE%\.codex\auth.json
+```
+
+```powershell
+scp $env:USERPROFILE\.codex\auth.json m4rk@<IP-tailscale>:/home/m4rk/.codex/auth.json
+```
+
+Si el directorio no existe todavía en la VM: `mkdir -p ~/.codex` antes.
+
+Después, en la VM:
+
+```bash
+chmod 600 ~/.codex/auth.json
+codex login status
+```
+
+🔴 **Ese archivo es un secreto.** Contiene `access_token` y `refresh_token`: quien lo tenga entra a tu cuenta. `chmod 600` no es decorativo, y nunca va a un repositorio.
+
+> ⚠️ No está garantizado que una sesión copiada sobreviva a la primera renovación de token. Si a los días la VM te pide iniciar sesión de nuevo, no es un error tuyo: pasá al Plan C.
+
+#### Plan C — Autenticar con clave de API
+
+La opción aburrida, y por eso la que nunca falla en un servidor: no necesita navegador ni túnel.
+
+```bash
+printf '%s' 'sk-...' | codex login --with-api-key
+```
+
+O leyéndola de una variable, para que no quede en el historial del shell:
+
+```bash
+printenv OPENAI_API_KEY | codex login --with-api-key
+```
+
+**Verificación:**
+```bash
+codex login status
+```
+
+**A cambio:** esto **se factura por token** contra tu cuenta de OpenAI. Ya no lo cubre ChatGPT Plus. Es la misma clave de T002, así que revisá que el tope de gasto de T003 esté puesto **antes** de largar al implementador a trabajar solo.
+
+Existe también `codex login --with-access-token`, que acepta un token por *stdin*. No lo recomiendo como plan estable: los access token caducan, y vas a estar repitiendo el trámite.
+
+#### Plan D — El implementador vive en tu PC
+
+Si nada de lo anterior sale, no hace falta que Codex corra dentro de la VM.
+
+Lo instalás en tu PC —donde `codex login` abre un navegador de verdad y funciona sin rodeos— y desde ahí maneja la VM por SSH:
+
+```bash
+ssh m4rk@<IP-tailscale> "comando"
+```
+
+Es la [Fase 00](plan-ejecucion.md#fase-00--el-implementador) del plan. Tiene una ventaja extra: si revertís un snapshot de la VM, el implementador no se borra.
+
+A cambio, cada comando pasa por SSH y las rutas de este documento hay que leerlas como «dentro de la VM».
+
+#### Tabla de decisión
+
+| Situación | Plan |
+|---|---|
+| Todo normal | El túnel SSH del paso 8 |
+| Ya usás Codex en tu PC | **B** — copiar `auth.json` |
+| Querés algo que no se rompa nunca | **C** — clave de API (se factura aparte) |
+| Nada de lo anterior anda | **D** — el implementador en la PC |
+
+> ⚠️ Los subcomandos de `codex login` cambian entre versiones. Todo lo de arriba está verificado contra `codex-cli 0.146.0`; si algo no coincide, confirmá con `codex login --help` antes de improvisar.
 
 ---
 
@@ -295,7 +385,7 @@ Que sea el mismo proyecto en los dos lados es solo porque este repo se usa como 
 | 5 | Docker (+ reconectar) | T012 |
 | 6 | Snapshot #2 | T013 👤 |
 | 7 | Node y Codex CLI | — |
-| 8 | `codex login` por túnel SSH | 👤 |
+| 8 | `codex login` por túnel SSH — [si falla](#8b-si-el-túnel-no-funciona) | 👤 |
 | 9 | Clonar el repositorio | T014 |
 | 10 | Traspaso a Codex | 👤 |
 
