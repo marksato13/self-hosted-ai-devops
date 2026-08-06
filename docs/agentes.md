@@ -23,7 +23,7 @@ Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree 
 
 ## 1. Agente Planificador
 
-**Perfil:** `planner` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
+**Perfil:** `planner` · **Modelo:** definido en LiteLLM · **Costo:** API independiente de ChatGPT
 
 Recibe la orden en lenguaje natural desde Telegram y la convierte en un plan ejecutable. Es el único que ve el problema completo.
 
@@ -147,7 +147,7 @@ Reglas:
 
 ## 5. Agente Revisor
 
-**Perfil:** `reviewer` · **Modelo:** GPT-5.1 · **Costo:** incluido en ChatGPT Plus
+**Perfil:** `reviewer` · **Modelo:** definido en LiteLLM · **Costo:** API independiente de ChatGPT
 
 El portero. Es lo único que separa el trabajo de tres modelos baratos de la rama principal.
 

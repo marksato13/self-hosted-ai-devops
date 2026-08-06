@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ISSUE="${1:-}"
-if [[ -z "$ISSUE" ]]; then
+if [[ ! "$ISSUE" =~ ^[0-9]+$ ]]; then
   echo "Uso: $0 <numero-de-issue> [agentes...]" >&2
   echo "Ejemplo: $0 12 backend tests docs" >&2
   exit 1
@@ -26,6 +26,11 @@ AGENTES=("${@:-backend tests docs}")
 REPO_RAIZ="$(git rev-parse --show-toplevel)"
 BASE_WT="$(dirname "$REPO_RAIZ")/worktrees"
 cd "$REPO_RAIZ"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "El repositorio principal tiene cambios sin commitear; se cancela." >&2
+  exit 2
+fi
 
 echo "▶ Actualizando main…"
 git fetch origin main --quiet
@@ -44,6 +49,10 @@ rama_de() {
 }
 
 for agente in "${AGENTES[@]}"; do
+  [[ "$agente" =~ ^[a-z][a-z0-9-]*$ ]] || {
+    echo "Nombre de agente inválido: $agente" >&2
+    exit 2
+  }
   rama="$(rama_de "$agente")"
   ruta="${BASE_WT}/issue-${ISSUE}-${agente}"
 

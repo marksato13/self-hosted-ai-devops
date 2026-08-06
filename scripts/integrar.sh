@@ -16,13 +16,18 @@
 set -euo pipefail
 
 ISSUE="${1:-}"
-if [[ -z "$ISSUE" ]]; then
+if [[ ! "$ISSUE" =~ ^[0-9]+$ ]]; then
   echo "Uso: $0 <numero-de-issue>" >&2
   exit 1
 fi
 
 REPO_RAIZ="$(git rev-parse --show-toplevel)"
 cd "$REPO_RAIZ"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "El repositorio principal tiene cambios sin commitear; se cancela." >&2
+  exit 2
+fi
 
 RAMA_INT="integra/issue-${ISSUE}"
 CANDIDATAS=(
@@ -35,8 +40,19 @@ echo "▶ Preparando ${RAMA_INT} desde main…"
 git fetch origin main --quiet
 git checkout main --quiet
 git pull --ff-only origin main --quiet
-git branch -D "$RAMA_INT" 2>/dev/null || true
+if git show-ref --verify --quiet "refs/heads/${RAMA_INT}"; then
+  echo "Ya existe ${RAMA_INT}. Revísala o elimínala explícitamente antes de reintentar." >&2
+  exit 2
+fi
 git checkout -b "$RAMA_INT" --quiet
+
+merge_en_curso=0
+limpiar_merge() {
+  if [[ $merge_en_curso -eq 1 ]]; then
+    git merge --abort >/dev/null 2>&1 || true
+  fi
+}
+trap limpiar_merge EXIT
 
 UNIDAS=()
 for rama in "${CANDIDATAS[@]}"; do
@@ -45,7 +61,9 @@ for rama in "${CANDIDATAS[@]}"; do
     continue
   fi
   echo "▶ Uniendo ${rama}…"
+  merge_en_curso=1
   if git merge --no-ff --no-edit "$rama" --quiet; then
+    merge_en_curso=0
     UNIDAS+=("$rama")
     echo "  ✅ unida"
   else
@@ -68,19 +86,22 @@ echo
 echo "▶ Verificaciones…"
 
 # 1. Secretos — lo primero, antes que nada
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks detect --no-banner --redact --log-opts="main..${RAMA_INT}" \
-    && echo "  ✅ sin secretos" \
-    || { echo "  🔴 SECRETO DETECTADO — no se abre el PR" >&2; exit 3; }
-else
-  echo "  ⚠️  gitleaks no está instalado, no se pudo verificar"
-fi
+command -v gitleaks >/dev/null 2>&1 || {
+  echo "  🔴 gitleaks es obligatorio y no está instalado" >&2
+  exit 3
+}
+gitleaks detect --no-banner --redact --log-opts="main..${RAMA_INT}" \
+  && echo "  ✅ sin secretos" \
+  || { echo "  🔴 SECRETO DETECTADO — no se abre el PR" >&2; exit 3; }
 
 # 2. Tests, si el repo tiene
-if [[ -f package.json ]] && grep -q '"test"' package.json; then
+TEST_ESTADO="OMITIDO (el repositorio no declara una suite compatible)"
+if [[ -f package.json ]] && jq -e '.scripts.test' package.json >/dev/null 2>&1; then
   npm test && echo "  ✅ tests" || { echo "  ❌ tests fallaron" >&2; exit 4; }
+  TEST_ESTADO="OK"
 elif [[ -f pytest.ini || -f pyproject.toml ]] && command -v pytest >/dev/null 2>&1; then
   pytest -q && echo "  ✅ tests" || { echo "  ❌ tests fallaron" >&2; exit 4; }
+  TEST_ESTADO="OK"
 else
   echo "  ⏭  sin suite de tests en este repo"
 fi
@@ -89,7 +110,7 @@ fi
 if [[ -f infra/docker-compose.yml ]]; then
   COMPOSE_ARGS=(-f infra/docker-compose.yml)
   [[ -f infra/docker-compose.visual.yml ]] && COMPOSE_ARGS+=(-f infra/docker-compose.visual.yml)
-  docker compose "${COMPOSE_ARGS[@]}" config -q \
+  docker compose --env-file .env.example "${COMPOSE_ARGS[@]}" config -q \
     && echo "  ✅ docker-compose válido" \
     || { echo "  ❌ docker-compose inválido" >&2; exit 5; }
 fi
@@ -114,7 +135,7 @@ $(printf -- '- \`%s\`\n' "${UNIDAS[@]}")
 
 ## Verificaciones
 - Escaneo de secretos: OK
-- Tests: ver salida del Revisor
+- Tests: ${TEST_ESTADO}
 - Configuración de Docker: válida
 
 ## Antes de aprobar

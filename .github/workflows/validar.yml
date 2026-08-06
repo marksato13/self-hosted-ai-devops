@@ -1,0 +1,28 @@
+name: Validar
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scripts-y-configuracion:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar herramientas
+        run: sudo apt-get update && sudo apt-get install -y jq shellcheck
+      - name: Probar scripts
+        run: ./tests/test-scripts.sh
+      - name: Analizar Bash
+        # El repositorio heredó avisos de estilo; CI bloquea errores reales.
+        run: shellcheck --severity=error scripts/*.sh tests/*.sh
+      - name: Validar Compose
+        run: docker compose --env-file .env.example -f infra/docker-compose.yml -f infra/docker-compose.visual.yml config -q
+      - name: Validar archivos estructurados
+        run: |
+          jq -e . config/plan.schema.json >/dev/null
+          ruby -e 'require "yaml"; YAML.load_file("infra/litellm-config.yaml")'

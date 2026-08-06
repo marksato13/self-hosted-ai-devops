@@ -181,8 +181,8 @@ nano .env
 ### 5.2 Levantar el gateway
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d postgres litellm
-docker compose -f infra/docker-compose.yml logs -f litellm
+docker compose --env-file .env -f infra/docker-compose.yml up -d postgres litellm
+docker compose --env-file .env -f infra/docker-compose.yml logs -f litellm
 ```
 
 ### 5.3 Probar cada modelo, uno por uno
@@ -220,7 +220,8 @@ for a in planner backend tester docs reviewer; do
 done
 ```
 
-Guardá esas claves: son las que van a usar los agentes en la Fase 8.
+Guardá cada resultado en la variable correspondiente de `.env`, por ejemplo
+`LITELLM_KEY_BACKEND`. La clave maestra se reserva para administración.
 
 ✅ **Fase 5 lista cuando:** los cinco modelos responden `ok` y las claves virtuales existen.
 
@@ -268,8 +269,8 @@ TELEGRAM_ALLOWED_CHAT_IDS=123456789      # tu chat_id, y nadie más
 ```bash
 nano ~/self-hosted-ai-devops/.env    # completar OPENCLAW_IMAGE
 cd ~/self-hosted-ai-devops
-docker compose -f infra/docker-compose.yml up -d
-docker compose -f infra/docker-compose.yml logs -f openclaw
+docker compose --env-file .env -f infra/docker-compose.yml up -d
+docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway
 ```
 
 ### Las dos pruebas de la allowlist
@@ -484,7 +485,17 @@ Borra los worktrees y las ramas ya integradas. Sin esto, `~/worktrees` se llena 
 
 ### 10.5 Conectarlo a OpenClaw
 
-El último paso es que OpenClaw dispare esta secuencia al recibir un mensaje, en vez de hacerla vos a mano:
+El último paso es conectar la cola aislada. Instala las unidades del usuario:
+
+```bash
+mkdir -p ~/.config/systemd/user ~/.local/state/ai-devops/queue
+cp infra/systemd/ai-devops-queue.* ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now ai-devops-queue.path
+```
+
+OpenClaw solo ejecuta `solicitar-issue <n>`; el servicio del host realiza el
+ciclo. El contrato y la recuperación están en [flujo-github.md](flujo-github.md).
 
 1. `codex --profile planner` → plan en JSON con las subtareas
 2. `./scripts/nueva-tarea.sh <issue>`

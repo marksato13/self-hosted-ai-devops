@@ -1,7 +1,7 @@
 # CONTEXTO DEL PROYECTO — `self-hosted-ai-devops`
 
 > **Para qué sirve este archivo:** es el documento de traspaso. Se pega (o se referencia) en Claude Code / Codex para que cualquier agente retome el trabajo sin volver a explicar nada.
-> **Última actualización:** 2026-08-05 · **Estado:** diseño cerrado, implementación no iniciada.
+> **Última actualización:** 2026-08-06 · **Estado:** runner y CI implementados; despliegue en VM pendiente.
 
 ---
 
@@ -246,7 +246,7 @@ Pendiente de hacer a mano en GitHub: activar branch protection sobre `main` (§7
 
 ## 13. Decisiones abiertas
 
-- ¿OpenClaw invoca a Codex por CLI directo o hay que escribir un wrapper? → Resolver al llegar a la Fase 4.
+- ¿OpenClaw invoca a Codex por CLI directo o hay que escribir un wrapper? → Resuelto mediante cola local y runner del host (ADR-020).
 - ¿Se usa GitHub App en vez de PAT? → El PAT alcanza para empezar; migrar si se suman más repos.
 - ¿Dónde queda la memoria persistente de las tareas entre reinicios de OpenClaw? → Sin definir; revisar en la Fase 3.
 - ¿Los agentes comparten un clon del repo o cada uno el suyo? → Probable uno por agente; confirmar en la Fase 5.

@@ -1,0 +1,4 @@
+model = "backend"
+model_provider = "gateway_backend"
+approval_policy = "never"
+sandbox_mode = "workspace-write"

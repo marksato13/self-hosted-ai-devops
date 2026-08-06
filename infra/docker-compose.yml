@@ -6,10 +6,7 @@
 #    litellm   — gateway de modelos (traduce API + aplica presupuestos)
 #    openclaw  — orquestador, escucha Telegram
 #
-#  ⚠️ PLANTILLA, NO CONFIGURACIÓN PROBADA.
-#  El nombre de la imagen de OpenClaw y sus variables de entorno
-#  deben confirmarse en su documentación oficial. Están como
-#  variables a propósito, para no dejar valores inventados.
+#  ⚠️ PLANTILLA, NO CONFIGURACIÓN PROBADA EN LA VM DESTINO.
 #
 #  Uso:
 #    cp ../.env.example ../.env    # y completar
@@ -81,45 +78,34 @@ services:
   # ----------------------------------------------------------
   #  OpenClaw — orquestador
   # ----------------------------------------------------------
-  openclaw:
+  openclaw-gateway:
     image: ${OPENCLAW_IMAGE}
-    container_name: openclaw
+    container_name: openclaw-gateway
+    init: true
     restart: unless-stopped
     depends_on:
       - litellm
-    env_file:
-      - ../.env
     environment:
-      # --- Telegram ---
+      HOME: /home/node
+      OPENCLAW_HOME: /home/node
+      OPENCLAW_STATE_DIR: /home/node/.openclaw
+      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
+      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
+      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      OPENCLAW_DISABLE_BONJOUR: "1"
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      # 🔴 CRÍTICO: sin esta allowlist, cualquier desconocido que
-      # encuentre el bot obtiene control sobre esta máquina.
-      # Ver docs/seguridad.md
-      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
-
-      # --- GitHub ---
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_OWNER: ${GITHUB_OWNER}
-      GITHUB_REPO: ${GITHUB_REPO}
-
-      # --- Modelos: todo pasa por el gateway ---
-      # Un solo endpoint y una sola clave, en vez de cuatro de cada.
-      OPENAI_API_BASE: http://litellm:4000/v1
-      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
-
-      # --- Frenos ---
-      MAX_RETRIES_PER_TASK: ${MAX_RETRIES_PER_TASK:-2}
-      TASK_TIMEOUT_MINUTES: ${TASK_TIMEOUT_MINUTES:-30}
       TZ: ${TZ:-America/Lima}
-
     volumes:
-      # Estado persistente del orquestador
-      - openclaw-data:/data
-      # Workspace: repo principal + worktrees de los agentes
-      - ${HOME}/workspace:/workspace
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      # Única capacidad hacia el host: escribir solicitudes validadas.
+      - ${AI_QUEUE_DIR:-/home/CAMBIAR/.local/state/ai-devops/queue}:/queue
+      - ../scripts/solicitar-issue.sh:/usr/local/bin/solicitar-issue:ro
     ports:
-      # Panel local. Se accede por Tailscale, nunca desde internet.
-      - "127.0.0.1:${OPENCLAW_PORT:-3000}:3000"
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -128,5 +114,4 @@ services:
 # de modelos y GitHub. Ningún puerto entrante desde internet.
 
 volumes:
-  openclaw-data:
   postgres-data:

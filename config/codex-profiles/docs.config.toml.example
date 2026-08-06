@@ -1,0 +1,4 @@
+model = "docs"
+model_provider = "gateway_docs"
+approval_policy = "never"
+sandbox_mode = "workspace-write"

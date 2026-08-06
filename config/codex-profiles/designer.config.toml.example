@@ -1,0 +1,4 @@
+model = "designer"
+model_provider = "gateway_designer"
+approval_policy = "never"
+sandbox_mode = "read-only"

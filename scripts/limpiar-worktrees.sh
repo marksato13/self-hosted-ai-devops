@@ -21,7 +21,7 @@ if [[ "${1:-}" == "--listar" ]]; then
 fi
 
 ISSUE="${1:-}"
-if [[ -z "$ISSUE" ]]; then
+if [[ ! "$ISSUE" =~ ^[0-9]+$ ]]; then
   echo "Uso: $0 <numero-de-issue> | --listar" >&2
   exit 1
 fi

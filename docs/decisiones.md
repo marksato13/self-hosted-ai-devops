@@ -322,11 +322,25 @@ Codex le sigue hablando a LiteLLM, los presupuestos y fallbacks no se tocan, y l
 
 ---
 
+## ADR-020 — Cola local entre OpenClaw y el runner
+
+**Contexto:** OpenClaw corre en Docker y Codex en el host. Montar el socket de
+Docker, el token de GitHub y todas las claves dentro del gateway convertiría
+una vulnerabilidad del canal de mensajería en control total de la VM.
+
+**Decisión:** OpenClaw solo escribe solicitudes numéricas en una cola montada.
+Un servicio `systemd` del host valida y procesa la cola con bloqueo exclusivo.
+
+**Consecuencia:** existe una pieza adicional, pero el contenedor no recibe los
+secretos del runner. Cada solicitud deja estado auditable y puede recuperarse.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
 |---|---|
-| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resolver en la Fase 8 |
+| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resuelta: cola local y runner del host, ADR-020 |
 | ¿PAT o GitHub App? | El PAT alcanza para empezar; migrar si se suman más repos |
 | ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 6 |
 | ¿Conviene un hilo de Telegram por tarea, como hace takopi? | Evaluar cuando haya varias tareas concurrentes |
