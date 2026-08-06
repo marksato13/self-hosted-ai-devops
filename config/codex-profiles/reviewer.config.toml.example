@@ -1,0 +1,4 @@
+model = "reviewer"
+model_provider = "gateway_reviewer"
+approval_policy = "never"
+sandbox_mode = "workspace-write"

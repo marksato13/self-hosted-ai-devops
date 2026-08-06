@@ -1,0 +1,4 @@
+model = "tester"
+model_provider = "gateway_tester"
+approval_policy = "never"
+sandbox_mode = "workspace-write"

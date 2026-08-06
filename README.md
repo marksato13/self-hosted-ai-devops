@@ -81,11 +81,11 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 
 | Agente | Perfil | Modelo | Para qué | Costo |
 |---|---|---|---|---|
-| Planificador | `planner` | GPT-5.1 | Divide la tarea en subtareas | Incluido en ChatGPT Plus |
+| Planificador | `planner` | Alias configurable | Divide la tarea en subtareas | API facturada aparte |
 | Backend | `backend` | DeepSeek V4 | Código de aplicación | Barato |
 | Tests | `tester` | Qwen3.5-coder | Pruebas automatizadas | Barato |
 | Docs | `docs` | GLM-4.5-Air | Documentación | Gratis |
-| Revisor | `reviewer` | GPT-5.1 | Une ramas, valida, abre el PR | Incluido en ChatGPT Plus |
+| Revisor | `reviewer` | Alias configurable | Une ramas, valida, abre el PR | API facturada aparte |
 | Diseñador | `designer` | GLM-4.5V *(visión)* | Mira las capturas y propone arreglos de CSS | Barato |
 
 El Diseñador solo entra si la tarea toca interfaz web — ver **[bucle visual](docs/bucle-visual.md)**.
@@ -157,17 +157,16 @@ npm i -g @openai/codex                           # Codex CLI
 git clone https://github.com/marksato13/self-hosted-ai-devops.git
 cd self-hosted-ai-devops
 cp .env.example .env        # completar con tus claves — NUNCA se commitea
-cp config/codex-config.toml.example ~/.codex/config.toml
+./scripts/instalar-config-codex.sh
 pre-commit install                                # guardarraíles de secretos
-docker compose -f infra/docker-compose.yml up -d  # postgres + litellm + openclaw
+docker compose --env-file .env -f infra/docker-compose.yml up -d
 ```
 
 Y el ciclo de una tarea, ya con todo montado:
 
 ```bash
-./scripts/nueva-tarea.sh 12        # crea 3 worktrees, uno por agente
-# …los 3 agentes trabajan en paralelo…
-./scripts/integrar.sh 12           # une, verifica y abre 1 PR en borrador
+./scripts/solicitar-issue.sh 12     # OpenClaw solo escribe en una cola
+./scripts/procesar-cola.sh          # el host ejecuta el ciclo aislado
 ./scripts/bucle-visual.sh 12       # (si es web) mira, corrige y manda la foto
 ./scripts/limpiar-worktrees.sh 12  # limpia al aprobar
 ```
@@ -199,6 +198,7 @@ Tres cosas que, si se omiten, duelen:
 3. **`main` va protegida.** Solo se entra por PR, para que un agente descontrolado no pueda escribir en la rama principal.
 
 Las medidas completas están en **[docs/seguridad.md](docs/seguridad.md)**.
+El procedimiento de ramas, verificaciones y PR está en **[docs/flujo-github.md](docs/flujo-github.md)**.
 
 ---
 

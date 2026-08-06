@@ -4,7 +4,8 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 
 **Para el agente:** este archivo es tu punto de reanudación. Al empezar una sesión, leelo primero: la última tarea marcada indica dónde continuar. Al terminar una tarea verificada, marcá su casilla y anotá la fecha. Si una tarea falla dos veces, marcala 🔴 y anotá el error en «Incidencias».
 
-**Estado general:** Fase 1 completa (repositorio). Infraestructura sin empezar.
+**Estado general:** runner, cola y CI implementados en el repositorio. La
+infraestructura de la VM continúa sin desplegar ni verificar.
 
 ---
 
@@ -152,4 +153,4 @@ Cuando el plan deja algo abierto y se resuelve sobre la marcha, anotarlo acá y 
 
 | Fecha | Decisión | Motivo |
 |---|---|---|
-| — | — | — |
+| 2026-08-06 | Cola local entre OpenClaw y el runner | Mantener GitHub, Codex, Docker y las claves fuera del contenedor de mensajería |

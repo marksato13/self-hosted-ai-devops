@@ -1,0 +1,4 @@
+model = "planner"
+model_provider = "gateway_planner"
+approval_policy = "never"
+sandbox_mode = "read-only"

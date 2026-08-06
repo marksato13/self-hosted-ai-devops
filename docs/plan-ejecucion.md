@@ -697,9 +697,7 @@ codex --version && echo OK
 **Ejecuta:** 🤖 · **Depende de:** T028 · ♻️
 
 ```bash
-mkdir -p ~/.codex
-cp ~/self-hosted-ai-devops/config/codex-config.toml.example ~/.codex/config.toml
-chmod 600 ~/.codex/config.toml
+~/self-hosted-ai-devops/scripts/instalar-config-codex.sh
 ```
 
 **Verificación:**
@@ -734,7 +732,7 @@ test -n "$LITELLM_MASTER_KEY" && echo OK
 ```bash
 for p in planner backend tester docs reviewer; do
   printf '%-9s ' "$p"
-  codex --profile "$p" "responde solo: ok" 2>&1 | tail -1
+  codex exec --profile "$p" --sandbox read-only "responde solo: ok" 2>&1 | tail -1
 done
 ```
 
@@ -965,14 +963,16 @@ git worktree list | wc -l
 ### T044 · Conectar el ciclo a OpenClaw
 **Ejecuta:** 🤖 · **Depende de:** T043
 
-Configurar OpenClaw para que al recibir un mensaje ejecute esta secuencia:
+OpenClaw no recibe acceso a GitHub, Codex, Docker ni a las claves de modelos.
+Solo ejecuta `solicitar-issue <n>`, que escribe una solicitud validada. Un
+servicio `systemd` del host procesa la cola:
 
 | # | Paso | Comando |
 |---|---|---|
-| 1 | Planificar | `codex --profile planner "<tarea>"` → plan en JSON |
-| 2 | Preparar | `./scripts/nueva-tarea.sh <issue>` |
-| 3 | Ejecutar | los tres perfiles en paralelo, uno por worktree |
-| 4 | Integrar | `./scripts/integrar.sh <issue>` |
+| 1 | Solicitar | `solicitar-issue <issue>` |
+| 2 | Planificar | `codex exec --profile planner` → JSON validado |
+| 3 | Preparar | `scripts/nueva-tarea.sh <issue>` |
+| 4 | Ejecutar | perfiles necesarios en paralelo, uno por worktree |
 | 5 | Notificar | mandar la URL del PR por Telegram |
 | 6 | Limpiar | `./scripts/limpiar-worktrees.sh <issue>` al aprobar |
 
@@ -980,7 +980,8 @@ Aplicar los tres frenos: `MAX_RETRIES_PER_TASK`, `TASK_TIMEOUT_MINUTES` y el pre
 
 **Verificación:** una tarea mandada por Telegram genera tres ramas y **un solo** PR consolidado, sin tocar la PC.
 
-**Si falla:** decidir aquí si OpenClaw invoca los comandos directamente o hace falta un wrapper — es la [decisión abierta](decisiones.md#decisiones-todavía-abiertas) que corresponde resolver en este punto, con el sistema ya andando a mano.
+**Si falla:** revisar `~/.local/state/ai-devops/queue/fallidas/` y los logs
+por agente bajo `~/.local/state/ai-devops/issues/<n>/`.
 
 ---
 

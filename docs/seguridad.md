@@ -113,11 +113,15 @@ Codex CLI se ejecuta con permisos acotados al workspace. Evitá el modo full-aut
 En `~/.codex/config.toml`:
 
 ```toml
-approval_policy = "on-failure"      # pide confirmación cuando algo falla
+approval_policy = "on-request"      # uso interactivo
 sandbox_mode    = "workspace-write" # escribe solo dentro del workspace
 ```
 
 Confirmá los nombres exactos de estas opciones en la documentación de Codex CLI.
+
+Los perfiles automáticos usan `approval_policy = "never"` porque no hay una
+terminal atendida. Esto no elimina el sandbox: continúan en
+`workspace-write`, con un worktree limitado y sin acceso a los secretos.
 
 ### Los agentes no ven los secretos
 
