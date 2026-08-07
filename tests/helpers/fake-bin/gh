@@ -10,11 +10,23 @@ case "${1:-} ${2:-}" in
       "${3:-1}" "${3:-1}" "${FAKE_GH_ISSUE_STATE:-OPEN}"
     ;;
   "pr create") printf 'https://example.invalid/pull/17\n' ;;
+  "pr list")
+    if [[ -n "${FAKE_PR_LIST_JSON:-}" ]]; then
+      printf '%s\n' "$FAKE_PR_LIST_JSON"
+    else
+      printf '[]\n'
+    fi
+    ;;
   "pr view")
+    numero="${3:-17}"
+    sha="${FAKE_PR_SHA:-0123456789abcdef}"
+    if [[ -n "${FAKE_PR_SHA_BY_NUMBER:-}" ]]; then
+      sha="$(jq -r --arg numero "$numero" '.[$numero] // "0123456789abcdef"' <<<"$FAKE_PR_SHA_BY_NUMBER")"
+    fi
     checks="[{\"status\":\"COMPLETED\",\"conclusion\":\"${FAKE_CI_CONCLUSION:-SUCCESS}\"}]"
     [[ "${FAKE_CI_EMPTY:-0}" == 1 ]] && checks='[]'
     printf '{"url":"https://example.invalid/pull/17","number":%s,"headRefOid":"%s","headRefName":"%s","baseRefName":"%s","mergeStateStatus":"%s","statusCheckRollup":%s,"state":"%s","isDraft":%s}\n' \
-      "${3:-17}" "${FAKE_PR_SHA:-0123456789abcdef}" "${FAKE_PR_HEAD:-integra/issue-2}" \
+      "$numero" "$sha" "${FAKE_PR_HEAD:-integra/issue-2}" \
       "${FAKE_PR_BASE:-main}" "${FAKE_PR_MERGE_STATE:-CLEAN}" "$checks" \
       "${FAKE_PR_STATE:-OPEN}" "${FAKE_PR_DRAFT:-true}"
     ;;

@@ -27,7 +27,7 @@ fi
 }
 
 case "$accion" in
-  estado|siguiente|detener|reanudar|ayuda)
+  estado|siguiente|detener|reanudar|ayuda|aprobar-todo)
     [[ -z "$valor" ]] || { echo "La acción $accion no admite argumentos." >&2; exit 64; }
     ;;
   issue|aprobar|rechazar)
@@ -49,7 +49,7 @@ case "$accion" in
     }
     ;;
   *)
-    echo "Acción no permitida. Usa: estado, siguiente, issue N, aprobar PR, confirmar CÓDIGO, rechazar PR, detener, reanudar, errores [N] o ayuda." >&2
+    echo "Acción no permitida. Usa: estado, siguiente, issue N, aprobar PR, aprobar-todo, confirmar CÓDIGO, rechazar PR, detener, reanudar, errores [N] o ayuda." >&2
     exit 64
     ;;
 esac
