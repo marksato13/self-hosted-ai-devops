@@ -353,6 +353,28 @@ convierte 26.04 en requisito para otras instalaciones.
 
 ---
 
+## ADR-022 — OmniRoute reemplaza a LiteLLM
+
+**Contexto:** el requisito definitivo es no pagar APIs adicionales. La VM tiene
+7 GB de RAM, insuficientes para ejecutar localmente modelos de programación de
+30B competitivos. ChatGPT Plus cubre Codex CLI, pero no OpenAI API.
+
+**Decisión:** OmniRoute reemplaza a LiteLLM y PostgreSQL. Codex se conecta por
+OAuth usando la suscripción existente; los perfiles de volumen usan rutas
+`auto/*:free`. Se eliminan de `.env` las claves comerciales.
+
+**Controles:** imagen fijada por digest, variante Docker sin navegador, puerto
+loopback, acceso por Tailscale Serve, proceso sin root ni capabilities,
+credenciales cifradas, concurrencia limitada y proveedores `avoid` excluidos.
+Las funciones MITM y los proveedores basados en cookies web no se habilitan.
+
+**Consecuencia:** no hay costo variable, pero tampoco garantía de capacidad.
+Las cuotas y modelos pueden cambiar y algunos proveedores son servicios
+propietarios aunque OmniRoute sea MIT. Si no queda cuota, el trabajo se detiene.
+Esta decisión **reemplaza ADR-010 y ADR-019** para la instalación actual.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
@@ -362,6 +384,6 @@ convierte 26.04 en requisito para otras instalaciones.
 | ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 6 |
 | ¿Conviene un hilo de Telegram por tarea, como hace takopi? | Evaluar cuando haya varias tareas concurrentes |
 | ¿Correr al Revisor también como check de CI, con codex-action? | Después de la Fase 9 |
-| ¿Vale la pena OmniRoute detrás de LiteLLM, por las capas gratuitas? | Fase 12, con datos de consumo reales — [ADR-019](#adr-019--omniroute-evaluado-litellm-se-queda) |
+| ¿Vale la pena OmniRoute? | Resuelta: reemplaza LiteLLM, ADR-022 |
 
 *(Resuelta: ¿clones o worktrees? → worktrees, ADR-011.)*

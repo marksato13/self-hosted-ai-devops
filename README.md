@@ -27,11 +27,11 @@ Sin nube. Sin abrir puertos en el router. Sin prender la PC.
 ```mermaid
 flowchart TD
     U["📱 Usuario<br/>(Telegram)"] --> OC["🧠 OpenClaw<br/>orquestador · Docker"]
-    OC --> P["Agente Planificador<br/>perfil planner · GPT-5.1"]
-    P --> B["Agente Backend<br/>perfil backend · DeepSeek V4<br/><i>worktree propio</i>"]
-    P --> T["Agente de Tests<br/>perfil tester · Qwen3.5-coder<br/><i>worktree propio</i>"]
-    P --> D["Agente de Docs<br/>perfil docs · GLM-4.5-Air<br/><i>worktree propio</i>"]
-    B --> R["Agente Revisor<br/>perfil reviewer · GPT-5.1"]
+    OC --> P["Agente Planificador<br/>perfil planner · auto/coding"]
+    P --> B["Agente Backend<br/>perfil backend · auto/coding<br/><i>worktree propio</i>"]
+    P --> T["Agente de Tests<br/>perfil tester · auto/coding:free<br/><i>worktree propio</i>"]
+    P --> D["Agente de Docs<br/>perfil docs · auto/coding:free<br/><i>worktree propio</i>"]
+    B --> R["Agente Revisor<br/>perfil reviewer · auto/coding"]
     T --> R
     D --> R
     R -->|falla algo| P
@@ -41,11 +41,11 @@ flowchart TD
     U -->|aprueba| M["merge a main"]
 
     R --> V["👁️ Bucle visual<br/>stage + Chromium headless"]
-    V --> DS["Agente Diseñador<br/>perfil designer · GLM-4.5V"]
+    V --> DS["Agente Diseñador<br/>perfil designer · auto/multimodal:free"]
     DS -->|propuestas| B
     V -->|📷 antes / después| OC
 
-    B -.-> LL["⚙️ LiteLLM<br/>gateway · presupuestos"]
+    B -.-> LL["⚙️ OmniRoute<br/>gateway · cuotas gratuitas"]
     T -.-> LL
     D -.-> LL
     P -.-> LL
@@ -55,7 +55,9 @@ flowchart TD
 
 Los tres agentes del medio trabajan **en paralelo, cada uno en su propio git worktree y su propia rama**. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
 
-Todas las llamadas a modelos pasan por **LiteLLM**, que traduce entre la Responses API que habla Codex y la Chat Completions que hablan DeepSeek, Qwen y GLM — y de paso aplica un presupuesto por agente.
+Todas las llamadas a modelos pasan por **OmniRoute**, que traduce la Responses
+API de Codex, aprovecha la suscripción ChatGPT Plus existente y aplica fallback
+entre proveedores gratuitos. No se mantienen saldos ni claves comerciales.
 
 Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 
@@ -68,7 +70,7 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 | Hipervisor | VMware ESXi 8.0 U3e (gratuito) | Hardware propio, sin costo de nube |
 | Sistema operativo | **Ubuntu Server 24.04 LTS** | VM headless — [por qué Server y no Desktop](docs/decisiones.md#adr-006--ubuntu-server-y-no-ubuntu-desktop) |
 | Orquestador | OpenClaw (Docker) | Escucha Telegram, reparte tareas |
-| Gateway de modelos | LiteLLM (Docker) | Traduce APIs, aplica presupuestos, registra costos |
+| Gateway de modelos | OmniRoute (Docker) | Traduce APIs, enruta cuotas gratuitas y registra uso |
 | Ejecutor de código | Codex CLI | Único ejecutor, 5 perfiles de agente |
 | Aislamiento | Git worktrees | Cada agente en su directorio, un solo `.git` |
 | Red remota | Tailscale | SSH desde el celular sin exponer el router |
@@ -81,16 +83,18 @@ Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 
 | Agente | Perfil | Modelo | Para qué | Costo |
 |---|---|---|---|---|
-| Planificador | `planner` | Alias configurable | Divide la tarea en subtareas | API facturada aparte |
-| Backend | `backend` | DeepSeek V4 | Código de aplicación | Barato |
-| Tests | `tester` | Qwen3.5-coder | Pruebas automatizadas | Barato |
-| Docs | `docs` | GLM-4.5-Air | Documentación | Gratis |
-| Revisor | `reviewer` | Alias configurable | Une ramas, valida, abre el PR | API facturada aparte |
-| Diseñador | `designer` | GLM-4.5V *(visión)* | Mira las capturas y propone arreglos de CSS | Barato |
+| Planificador | `planner` | `auto/coding` | Divide la tarea en subtareas | Sin costo adicional |
+| Backend | `backend` | `auto/coding` | Código de aplicación | Sin costo adicional |
+| Tests | `tester` | `auto/coding:free` | Pruebas automatizadas | Gratis |
+| Docs | `docs` | `auto/coding:free` | Documentación | Gratis |
+| Revisor | `reviewer` | `auto/coding` | Une ramas, valida, abre el PR | Sin costo adicional |
+| Diseñador | `designer` | `auto/multimodal:free` | Revisa capturas y propone CSS | Gratis |
 
 El Diseñador solo entra si la tarea toca interfaz web — ver **[bucle visual](docs/bucle-visual.md)**.
 
-Cada uno tiene su propia clave virtual en LiteLLM con **5 USD de presupuesto**: si uno entra en bucle, quema lo suyo y se detiene sin arrastrar a los demás.
+Los perfiles de volumen fuerzan rutas `:free`; Planificador, Backend y Revisor
+pueden usar Codex mediante la suscripción existente. Si no queda cuota, la tarea
+se detiene sin generar cargos de API.
 
 Prompts, límites y responsabilidades de cada uno en **[docs/agentes.md](docs/agentes.md)**.
 Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelos.md)**.
@@ -109,9 +113,10 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
+| [docs/omniroute.md](docs/omniroute.md) | Gateway gratuito, seguridad, autenticación y recuperación |
 | [docs/registro-proveedores-ia.md](docs/registro-proveedores-ia.md) | Registro paso a paso y almacenamiento seguro de claves de API |
 | [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
-| [docs/decisiones.md](docs/decisiones.md) | 19 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
+| [docs/decisiones.md](docs/decisiones.md) | ADRs: ESXi, OmniRoute, seguridad, worktrees y operación |
 | [docs/seguridad.md](docs/seguridad.md) | Allowlist de Telegram, secretos, permisos, sandbox |
 | [docs/runbook.md](docs/runbook.md) | Operación diaria, diagnóstico y recuperación |
 | [infra/vm-esxi.md](infra/vm-esxi.md) | Specs y creación de la VM |
@@ -179,7 +184,7 @@ Y el ciclo de una tarea, ya con todo montado:
 | Fase | Qué se hace | Listo cuando |
 |---|---|---|
 | 1–4 | VM, Ubuntu Server, Tailscale, Docker | Entrás por SSH desde el celular y `docker run hello-world` corre |
-| 5 | LiteLLM (gateway) | Los 5 modelos responden por un solo endpoint |
+| 5 | OmniRoute (gateway) | `auto/coding:free` responde con costo cero |
 | 6–7 | Bot de Telegram + OpenClaw | Tu mensaje recibe respuesta; el de otra cuenta se ignora |
 | 8 | Codex CLI y los 5 perfiles | Los cinco perfiles responden |
 | 9 | GitHub, gitleaks y primer PR | Desde Telegram logras que abra un PR trivial |
@@ -203,9 +208,12 @@ El procedimiento de ramas, verificaciones y PR está en **[docs/flujo-github.md]
 
 ---
 
-## Aviso sobre versiones
+## Aviso sobre modelos gratuitos
 
-Los nombres y versiones de modelos citados (GPT-5.1, DeepSeek V4, Qwen3.5-coder, GLM-4.5-Air), los endpoints de cada proveedor y el formato exacto de configuración de OpenClaw y Codex CLI provienen de la investigación de diseño y **deben confirmarse contra la documentación oficial al momento de instalar**. Los archivos de `config/` e `infra/` son plantillas, no configuraciones probadas.
+Las cuotas y modelos externos cambian con frecuencia. OmniRoute selecciona el
+modelo disponible en cada petición; revisá periódicamente el catálogo y sus
+términos. El contenedor y la ruta `auto/coding:free` fueron probados en esta VM
+el 2026-08-07.
 
 ---
 

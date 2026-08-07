@@ -62,12 +62,14 @@ Confundirlos es el error que más tiempo cuesta después, porque los síntomas a
 | | **Codex implementador** (esta fase) | **Codex de la flota** (T028) |
 |---|---|---|
 | Dónde vive | Tu PC (Windows nativo, WSL, Linux o macOS) | Dentro de la VM |
-| Se autentica con | Tu suscripción **ChatGPT Plus** (`codex login`) | Una clave virtual de **LiteLLM** |
+| Se autentica con | Tu suscripción **ChatGPT Plus** (`codex login`) | Clave local de **OmniRoute** |
 | Perfiles | Ninguno: usa el que viene por defecto | `planner`, `backend`, `tester`, `docs`, `reviewer`, `designer` |
 | Para qué sirve | Montar este sistema | Escribir código en el repositorio objetivo |
 | Si se pierde | Lo reinstalás y seguís donde ibas | Lo rehace T028 |
 
-**No copies `config/codex-config.toml.example` en tu PC.** Ese archivo apunta a `http://localhost:4000`, que es LiteLLM **dentro de la VM** y no existirá hasta T018. En tu PC, el implementador usa la configuración por defecto y la suscripción.
+**No copies `config/codex-config.toml.example` en tu PC.** Ese archivo apunta a
+`http://localhost:20128`, que es OmniRoute dentro de la VM. En tu PC, el
+implementador usa la configuración por defecto y la suscripción.
 
 ### Por qué en la PC y no dentro de la VM
 
@@ -144,7 +146,8 @@ codex "responde solo con la palabra: ok"
 
 **Si falla:** confirmar los subcomandos con `codex --help` — cambian entre versiones. Si el navegador no abre solo (habitual en WSL), copiar la URL que imprime y pegarla a mano en Windows.
 
-> 💡 Esto **no consume** tus claves de API. El implementador va por la suscripción que ya pagás; las cuatro claves de T002 son para la flota, no para él.
+> 💡 Esto usa la suscripción que ya pagás. No se crean claves comerciales para
+> la flota.
 
 ---
 
@@ -205,28 +208,22 @@ Descargar **Ubuntu Server 24.04 LTS** de https://ubuntu.com/download/server y su
 
 ---
 
-### T002 · Obtener las cuatro claves de API
+### T002 · Confirmar la suscripción de Codex
 **Ejecuta:** 👤 · **Depende de:** — · ♻️
 
-| Proveedor | Consola | Variable |
-|---|---|---|
-| OpenAI | https://platform.openai.com/api-keys | `OPENAI_API_KEY` |
-| DeepSeek | https://platform.deepseek.com | `DEEPSEEK_API_KEY` |
-| Alibaba Bailian | https://bailian.console.aliyun.com | `DASHSCOPE_API_KEY` |
-| Zhipu / Z.ai | https://open.bigmodel.cn | `ZHIPU_API_KEY` |
+Confirmar que `codex login` usa la cuenta con ChatGPT Plus. No crear ni comprar
+claves de API comerciales.
 
-Guardarlas en un gestor de contraseñas, **no** en un archivo de texto.
-
-**Verificación:** las cuatro claves existen y están guardadas fuera de la VM.
-
-**Si falla:** DeepSeek y Bailian requieren recargar saldo antes de emitir claves utilizables.
+**Verificación:** `codex --version` funciona y la cuenta Plus puede iniciar una
+sesión interactiva.
 
 ---
 
-### T003 · ⚠️ Poner tope de gasto en cada consola
+### T003 · ⚠️ Confirmar política sin rutas de pago
 **Ejecuta:** 👤 · **Depende de:** T002 · ♻️
 
-En las cuatro consolas: límite de gasto mensual y alerta por correo. Sugerido: **5 USD por proveedor**.
+No añadir saldo, tarjeta ni recarga automática. Las rutas de volumen deben
+terminar en `:free`; Codex OAuth puede usar la suscripción ya pagada.
 
 **Verificación:** las cuatro consolas muestran un límite configurado.
 
@@ -414,9 +411,10 @@ Apagar la VM (`sudo poweroff`) y tomar instantánea `02-base-lista`. Volver a en
 
 ---
 
-# FASE 5 — LiteLLM (gateway)
+# FASE 5 — OmniRoute (gateway gratuito)
 
-> Sin esta fase, tres de los cinco agentes no funcionan. Codex solo habla la Responses API; DeepSeek, Qwen y GLM solo hablan Chat Completions. Ver [ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos).
+> OmniRoute sustituye a LiteLLM. Usa Codex OAuth con ChatGPT Plus y proveedores
+> gratuitos; no necesita claves comerciales. Ver [ADR-022](decisiones.md#adr-022--omniroute-reemplaza-a-litellm).
 
 ### T014 · Clonar el repositorio
 **Ejecuta:** 🤖 · **Depende de:** T012 · ♻️
@@ -428,7 +426,7 @@ cd ~/self-hosted-ai-devops && chmod +x scripts/*.sh
 
 **Verificación:**
 ```bash
-test -f ~/self-hosted-ai-devops/infra/litellm-config.yaml && echo OK
+test -f ~/self-hosted-ai-devops/infra/docker-compose.yml && echo OK
 ```
 
 ---
@@ -438,8 +436,7 @@ test -f ~/self-hosted-ai-devops/infra/litellm-config.yaml && echo OK
 
 ```bash
 cd ~/self-hosted-ai-devops
-cp .env.example .env
-chmod 600 .env
+./scripts/preparar-entorno.sh
 ```
 
 **Verificación:**
@@ -450,42 +447,35 @@ stat -c '%a' ~/self-hosted-ai-devops/.env
 
 ---
 
-### T016 · Generar las claves internas
+### T016 · Verificar los secretos locales
 **Ejecuta:** 🤖 · **Depende de:** T015
 
 ```bash
 cd ~/self-hosted-ai-devops
-sed -i "s|^LITELLM_MASTER_KEY=.*|LITELLM_MASTER_KEY=sk-$(openssl rand -hex 24)|" .env
-sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|"     .env
+set -a; source .env; set +a
+for k in OMNIROUTE_JWT_SECRET OMNIROUTE_API_KEY_SECRET \
+  OMNIROUTE_STORAGE_ENCRYPTION_KEY OMNIROUTE_INITIAL_PASSWORD; do
+  test -n "${!k}" || exit 1
+done
 ```
 
 **Verificación:**
 ```bash
-grep -qE '^LITELLM_MASTER_KEY=sk-.{48}$' .env && \
-grep -qE '^POSTGRES_PASSWORD=.{32}$'     .env && echo OK
+stat -c '%a' .env | grep -qx 600 && echo OK
 ```
 
 ---
 
-### T017 · Cargar las claves de proveedor
-**Ejecuta:** ⚙️ · **Depende de:** T016
-
-👤 La persona pega las cuatro claves de T002. El agente **no las inventa ni las pide por pantalla en claro**.
-
-```bash
-nano ~/self-hosted-ai-devops/.env
-# OPENAI_API_KEY, DEEPSEEK_API_KEY, DASHSCOPE_API_KEY, ZHIPU_API_KEY
-```
+### T017 · Confirmar que no hay claves comerciales
+**Ejecuta:** 🤖 · **Depende de:** T016
 
 **Verificación:**
 ```bash
-cd ~/self-hosted-ai-devops
-for k in OPENAI_API_KEY DEEPSEEK_API_KEY DASHSCOPE_API_KEY ZHIPU_API_KEY; do
-  grep -qE "^${k}=.+" .env || { echo "FALTA $k"; exit 1; }
-done; echo OK
+! grep -qE '^(OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU|MOONSHOT)_API_KEY=' .env && echo OK
 ```
 
-**Si falla:** PARAR y pedir la clave que falta. No continuar con claves vacías.
+**Si falla:** ejecutar `./scripts/migrar-omniroute.sh`; después revocar las
+claves antiguas en sus consolas.
 
 ---
 
@@ -494,67 +484,54 @@ done; echo OK
 
 ```bash
 cd ~/self-hosted-ai-devops
-docker compose -f infra/docker-compose.yml up -d postgres litellm
+docker compose --env-file .env -f infra/docker-compose.yml up -d omniroute
 sleep 30
 ```
 
 **Verificación:**
 ```bash
-curl -fsS http://localhost:4000/health/liveliness >/dev/null && echo OK
+curl -fsS http://localhost:20128/api/monitoring/health >/dev/null && echo OK
 ```
 
 **Si falla:**
 ```bash
-docker compose -f infra/docker-compose.yml logs litellm --tail 50
+docker compose --env-file .env -f infra/docker-compose.yml logs omniroute --tail 50
 ```
-Causas frecuentes: `DATABASE_URL` mal formada, Postgres sin arrancar todavía.
+Causas frecuentes: volumen sin permisos o secreto local ausente.
 
 ---
 
-### T019 · Probar los cinco modelos
+### T019 · Probar una ruta gratuita
 **Ejecuta:** 🤖 · **Depende de:** T018 · ♻️
 
 ```bash
 cd ~/self-hosted-ai-devops
-set -a && source .env && set +a
-for m in planner backend tester docs reviewer; do
-  printf '%-9s ' "$m"
-  curl -s http://localhost:4000/v1/chat/completions \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"responde solo: ok\"}]}" \
-    | jq -r '.choices[0].message.content // .error.message'
-done
+./scripts/crear-clave-omniroute.sh
+set -a; source .env; set +a
+curl -sS -D /tmp/omniroute-headers http://localhost:20128/v1/chat/completions \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto/coding:free","messages":[{"role":"user","content":"responde solo OK"}]}'
+grep -qi '^x-omniroute-response-cost: 0' /tmp/omniroute-headers
 ```
 
-**Esperado:** los cinco responden `ok`.
-
-**Si falla uno solo:** es problema **de ese proveedor**. Corregir `api_base` o el nombre del modelo en `infra/litellm-config.yaml`, luego `docker compose restart litellm`. Tabla de errores en [runbook.md](runbook.md#un-perfil-de-codex-falla).
-
-**Si fallan todos:** el gateway no lee el `.env`. Revisar el bloque `environment` del compose.
+**Esperado:** respuesta `OK` y costo cero. La respuesta puede llegar como SSE.
 
 ---
 
-### T020 · Crear claves virtuales con presupuesto
-**Ejecuta:** 🤖 · **Depende de:** T019
+### T020 · Conectar Codex OAuth y OpenCode Free
+**Ejecuta:** 👤 · **Depende de:** T019
 
 ```bash
-cd ~/self-hosted-ai-devops
-set -a && source .env && set +a
-for a in planner backend tester docs reviewer; do
-  curl -s -X POST http://localhost:4000/key/generate \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"models\":[\"$a\"],\"max_budget\":5,\"budget_duration\":\"30d\",\"key_alias\":\"agente-$a\"}" \
-    | jq -r '"\(.key_alias): \(.key)"'
-done
+tailscale serve --bg --yes 20128
+tailscale serve status
 ```
 
-**Verificación:** se imprimen cinco líneas `agente-X: sk-...`
+Abrir la URL privada, conectar **Codex** con la cuenta ChatGPT Plus y confirmar
+**OpenCode Free**. No usar Funnel ni conectar proveedores de pago.
 
-**Si falla:** requiere que Postgres esté sano. `docker compose ps` debe mostrar `healthy`.
-
-> Esto hace que un agente en bucle queme **sus** 5 USD y se detenga solo, sin arrastrar a los demás.
+**Verificación:** ambas conexiones aparecen saludables y `auto/coding:free`
+continúa reportando costo cero.
 
 ---
 
@@ -642,7 +619,7 @@ sleep 20
 docker compose -f infra/docker-compose.yml ps
 ```
 
-**Verificación:** los tres servicios (`postgres`, `litellm`, `openclaw`) en estado `Up`.
+**Verificación:** `omniroute` y `openclaw-gateway` aparecen en estado `Up`.
 
 **Si falla:** `docker compose logs openclaw --tail 50`. Si reinicia en bucle, falta una variable en `.env`.
 
@@ -703,7 +680,7 @@ codex --version && echo OK
 **Verificación:**
 ```bash
 grep -q 'wire_api = "responses"'          ~/.codex/config.toml && \
-grep -q 'base_url = "http://localhost:4000/v1"' ~/.codex/config.toml && echo OK
+grep -q 'base_url = "http://localhost:20128/v1"' ~/.codex/config.toml && echo OK
 ```
 
 **Si falla:** `wire_api` **debe** ser `"responses"`. El valor `"chat"` fue eliminado de Codex en febrero de 2026.
@@ -721,7 +698,7 @@ source ~/.bashrc
 
 **Verificación:**
 ```bash
-test -n "$LITELLM_MASTER_KEY" && echo OK
+test -n "$OMNIROUTE_API_KEY" && echo OK
 ```
 
 ---
@@ -1260,15 +1237,13 @@ El modelo del Diseñador tiene que aceptar **imágenes de entrada**. Uno de text
 no sirve acá, por barato que sea.
 
 ```bash
-# 1. El alias ya está en infra/litellm-config.yaml; recargar el gateway
+# 1. Recargar OmniRoute y el catálogo de visión gratuito
 cd ~/self-hosted-ai-devops
-docker compose -f infra/docker-compose.yml up -d --force-recreate litellm
-
-# 2. Clave virtual con su propio presupuesto
-curl -sS -X POST http://localhost:4000/key/generate \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"models":["designer"],"max_budget":5,"budget_duration":"30d","key_alias":"agente-designer"}'
+docker compose --env-file .env -f infra/docker-compose.yml restart omniroute
+set -a; source .env; set +a
+curl -fsS http://localhost:20128/v1/models \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
+  | jq -e '.data[] | select(.id == "auto/multimodal:free")'
 ```
 
 **Verificación:** el perfil ve de verdad una imagen —
@@ -1278,9 +1253,9 @@ codex --profile designer -i "$ARTEFACTOS_DIR/base/inicio__escritorio.png" \
 ```
 **Esperado:** responde `stage vivo`.
 
-**Si responde que no puede ver imágenes:** el modelo del alias `designer` no es
-multimodal. Cambiarlo en `infra/litellm-config.yaml` por uno de visión y repetir.
-Ver [modelos.md](modelos.md#el-diseñador-necesita-visión).
+**Si responde que no puede ver imágenes:** no hay un candidato gratuito de
+visión conectado. Revisar `auto/multimodal:free` en el dashboard y agregar solo
+un proveedor permitido por sus términos.
 
 ---
 
@@ -1319,7 +1294,7 @@ decidas a mano.
 | 2 · Ubuntu | T007–T009 | 2 | 1 |
 | 3 · Tailscale | T010–T011 | — | 2 |
 | 4 · Docker | T012–T013 | 1 | 1 |
-| 5 · LiteLLM | T014–T020 | 6 | 1 |
+| 5 · OmniRoute | T014–T020 | 6 | 1 |
 | 6 · Telegram | T021–T023 | — | 3 |
 | 7 · OpenClaw | T024–T027 | 1 | 3 |
 | 8 · Codex CLI | T028–T031 | 4 | — |

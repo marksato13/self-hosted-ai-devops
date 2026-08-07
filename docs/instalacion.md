@@ -22,7 +22,7 @@ Cada fase termina con un **criterio verificable**. Si no se cumple, no pases a l
 | [2](#fase-2--instalar-ubuntu-server-2404-lts) | Ubuntu Server instalado | 30 min |
 | [3](#fase-3--acceso-remoto-con-tailscale) | SSH desde el celular | 15 min |
 | [4](#fase-4--docker) | Docker funcionando | 10 min |
-| [5](#fase-5--litellm-el-gateway-de-modelos) | Los 4 modelos accesibles por un endpoint | 40 min |
+| [5](#fase-5--omniroute-el-gateway-gratuito) | Ruta gratuita y Codex Plus por un endpoint | 40 min |
 | [6](#fase-6--el-bot-de-telegram) | Bot creado con allowlist verificada | 20 min |
 | [7](#fase-7--openclaw) | Orquestador respondiendo por Telegram | 30 min |
 | [8](#fase-8--codex-cli-y-los-perfiles) | Los 5 perfiles de agente probados | 30 min |
@@ -151,9 +151,11 @@ docker compose version
 
 ---
 
-## Fase 5 — LiteLLM, el gateway de modelos
+## Fase 5 — OmniRoute, el gateway gratuito
 
-> Esta fase no estaba en el plan original. Se agregó porque **sin ella tres de los cinco agentes no funcionan**: Codex CLI solo habla la Responses API y DeepSeek, Qwen y GLM solo hablan Chat Completions. LiteLLM traduce entre ambas, y de paso aplica los topes de gasto. Ver [ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos).
+OmniRoute recibe la Responses API de Codex, usa la suscripción ChatGPT Plus por
+OAuth y enruta el resto hacia capas gratuitas. No se compran créditos de API.
+Ver [ADR-022](decisiones.md#adr-022--omniroute-reemplaza-a-litellm).
 
 ### 5.1 Clonar el repo y preparar los secretos
 
@@ -161,22 +163,11 @@ docker compose version
 cd ~
 git clone https://github.com/marksato13/self-hosted-ai-devops.git
 cd self-hosted-ai-devops
-cp .env.example .env
-chmod 600 .env
+./scripts/preparar-entorno.sh
 ```
 
-Generá las dos claves internas:
-
-```bash
-echo "LITELLM_MASTER_KEY=sk-$(openssl rand -hex 24)"
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
-```
-
-Copiá esas dos líneas al `.env`, junto con las cuatro claves de proveedor:
-
-```bash
-nano .env
-```
+El script genera los secretos locales de cifrado y deja `.env` con permisos
+`600`. No solicita claves de proveedores comerciales.
 
 ### 5.2 Levantar el gateway
 
@@ -185,49 +176,38 @@ registra la versión y el digest nuevo; no se usa `latest` directamente en la
 VM desatendida.
 
 ```bash
-docker compose --env-file .env -f infra/docker-compose.yml up -d postgres litellm
-docker compose --env-file .env -f infra/docker-compose.yml logs -f litellm
+docker compose --env-file .env -f infra/docker-compose.yml up -d omniroute
+docker compose --env-file .env -f infra/docker-compose.yml logs -f omniroute
 ```
 
-### 5.3 Probar cada modelo, uno por uno
+### 5.3 Crear la clave local y probar la capa gratuita
 
 ```bash
-set -a && source .env && set +a
-
-curl -s http://localhost:4000/health/liveliness
-
-for m in planner backend tester docs reviewer; do
-  echo "── $m ──"
-  curl -s http://localhost:4000/v1/chat/completions \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"responde solo: ok\"}]}" \
-    | jq -r '.choices[0].message.content // .error.message'
-done
+./scripts/crear-clave-omniroute.sh
+set -a; source .env; set +a
+curl -fsS http://localhost:20128/api/monitoring/health | jq
+curl -sS http://localhost:20128/v1/chat/completions \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto/coding:free","messages":[{"role":"user","content":"responde solo OK"}]}'
 ```
 
-Si uno falla, es problema **de ese proveedor**: clave, `api_base` o nombre de modelo. Se arregla en `infra/litellm-config.yaml` y se reinicia con `docker compose restart litellm`.
+La respuesta puede ser SSE aunque no se solicite streaming. Confirmá en las
+cabeceras `X-OmniRoute-Response-Cost` que el costo sea cero.
 
-Errores frecuentes → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) y [runbook.md](runbook.md#un-perfil-de-codex-falla).
-
-### 5.4 Claves virtuales con presupuesto por agente
-
-Esto es lo que hace que un agente en bucle queme **su** presupuesto y se detenga solo, sin arrastrar a los demás:
+### 5.4 Conectar Codex Plus
 
 ```bash
-for a in planner backend tester docs reviewer; do
-  curl -s -X POST http://localhost:4000/key/generate \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"models\":[\"$a\"],\"max_budget\":5,\"budget_duration\":\"30d\",\"key_alias\":\"agente-$a\"}" \
-    | jq -r '"\(.key_alias): \(.key)"'
-done
+tailscale serve --bg --yes 20128
+tailscale serve status
 ```
 
-Guardá cada resultado en la variable correspondiente de `.env`, por ejemplo
-`LITELLM_KEY_BACKEND`. La clave maestra se reserva para administración.
+Abrí el panel privado, entrá en **Providers** y conectá **Codex** por OAuth con
+la cuenta ChatGPT Plus. Confirmá también OpenCode Free. No uses Funnel ni
+conectes proveedores con saldo.
 
-✅ **Fase 5 lista cuando:** los cinco modelos responden `ok` y las claves virtuales existen.
+✅ **Fase 5 lista cuando:** OmniRoute está saludable, `auto/coding:free`
+responde con costo cero y Codex OAuth aparece conectado.
 
 ---
 
@@ -310,7 +290,9 @@ cp ~/self-hosted-ai-devops/config/codex-config.toml.example ~/.codex/config.toml
 chmod 600 ~/.codex/config.toml
 ```
 
-Los cinco perfiles apuntan al **mismo** proveedor (`gateway` → LiteLLM en `localhost:4000`). Lo que cambia entre ellos es el alias de modelo, y ese alias se resuelve en `litellm-config.yaml`. Cambiar de modelo más adelante no toca este archivo.
+Los perfiles apuntan al mismo proveedor (`omniroute` en `localhost:20128`). Los
+de volumen usan `auto/coding:free`; planificación y revisión pueden aprovechar
+Codex Plus mediante OAuth.
 
 ```bash
 set -a && source ~/self-hosted-ai-devops/.env && set +a
@@ -560,8 +542,8 @@ que metiste a propósito.
 | No entra el SSH | ¿Instalaste OpenSSH en la Fase 2? ¿`ufw allow OpenSSH`? |
 | Tailscale no conecta desde el celular | ¿Misma cuenta en ambos lados? ¿Corrió `sudo tailscale up`? |
 | `docker` pide `sudo` | Falta reconectar la sesión SSH tras el `usermod` |
-| LiteLLM no levanta | `docker compose logs litellm`. Suele ser `DATABASE_URL` o Postgres sin arrancar |
-| Un modelo da 404 en LiteLLM | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
+| OmniRoute no levanta | `docker compose logs omniroute`; revisar secretos y permisos del volumen |
+| No hay candidatos | Conectar Codex OAuth u otro proveedor gratuito permitido |
 | Un modelo da 401 | Clave mal copiada, o la variable no llegó al contenedor |
 | El bot no responde | `docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway`; revisá el token y la allowlist |
 | El bot responde a desconocidos | 🔴 Pará todo. `TELEGRAM_ALLOWED_CHAT_IDS` mal configurado |

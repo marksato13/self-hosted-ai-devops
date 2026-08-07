@@ -13,17 +13,19 @@ C=infra/docker-compose.yml
 docker compose -f $C ps               # ¿están los 3 servicios?
 docker compose -f $C logs -f          # logs en vivo (Ctrl+C para salir)
 docker compose --env-file .env -f $C logs -f openclaw-gateway # solo el orquestador
-docker compose -f $C logs -f litellm  # solo el gateway
+docker compose -f $C logs -f omniroute # solo el gateway
 docker compose -f $C restart          # reiniciar todo
 docker compose -f $C down             # 🛑 parada de emergencia
 docker compose -f $C up -d            # levantar
 ```
 
-Gasto acumulado por agente:
+Estado y catálogo del gateway:
 
 ```bash
-curl -s http://localhost:4000/spend/logs \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq
+curl -fsS http://localhost:20128/api/monitoring/health | jq
+set -a; source .env; set +a
+curl -fsS http://localhost:20128/v1/models \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" | jq '.data[].id'
 ```
 
 Worktrees en uso:
@@ -113,27 +115,27 @@ Con el gateway en el medio, el problema puede estar en dos lugares. Aislalo de a
 **Primero: ¿responde el gateway?**
 
 ```bash
-curl -s http://localhost:4000/health/liveliness
+curl -fsS http://localhost:20128/api/monitoring/health | jq
 ```
 
 **Segundo: ¿responde ese modelo en el gateway?**
 
 ```bash
-curl -s http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+curl -sS http://localhost:20128/v1/chat/completions \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"backend","messages":[{"role":"user","content":"ok"}]}' | jq
+  -d '{"model":"auto/coding:free","messages":[{"role":"user","content":"ok"}]}'
 ```
 
-Si falla acá, el problema es del proveedor: se arregla en `infra/litellm-config.yaml` y `docker compose restart litellm`.
+Si falla acá, revisá `docker compose logs omniroute`, el dashboard de Providers
+y la cuota de las conexiones. No agregues saldo para resolverlo.
 
 | Error | Causa |
 |---|---|
-| `401` / `invalid api key` | Clave del proveedor mal copiada, o no llegó al contenedor |
-| `404` / `model not found` | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
-| `429` | Sin crédito o límite de tasa. Revisá la consola del proveedor |
-| `budget exceeded` | La clave virtual de ese agente agotó sus 5 USD. **Funcionando como debe** |
-| `connection refused` | `api_base` incorrecta, o región equivocada (caso Bailian) |
+| `401` | Falta o fue revocada `OMNIROUTE_API_KEY`; regenerarla localmente |
+| `no candidates` | No hay proveedor conectado compatible con la categoría |
+| `429` | Cuota gratuita agotada; esperar el reinicio o usar otro proveedor permitido |
+| `connection refused` | El contenedor OmniRoute está caído |
 
 **Tercero: si el gateway responde pero Codex no**, el problema está en `~/.codex/config.toml`:
 
@@ -144,11 +146,11 @@ codex --profile backend "responde: ok"
 | Error | Causa |
 |---|---|
 | Error de `wire_api` | Debe ser `"responses"`. El valor `"chat"` ya no existe |
-| `connection refused` a `localhost:4000` | El gateway está caído, o Codex corre dentro de un contenedor y no ve `localhost` |
-| `401` contra el gateway | `LITELLM_MASTER_KEY` no está en el entorno |
+| `connection refused` a `localhost:20128` | OmniRoute está caído o Codex no corre en el host |
+| `401` contra el gateway | `OMNIROUTE_API_KEY` no está cargada en el entorno |
 
 ```bash
-env | grep -E "LITELLM|OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU" | sed 's/=.*/=***/'
+env | grep '^OMNIROUTE_' | sed 's/=.*/=***/'
 set -a && source ~/self-hosted-ai-devops/.env && set +a
 ```
 
@@ -243,9 +245,8 @@ codex --profile designer -i ~/workspace/artefactos/base/inicio__escritorio.png \
   "¿Qué texto se lee en esta imagen? Respondé solo el texto."
 ```
 
-Si no devuelve el texto de la captura, el modelo del alias `designer` no es
-multimodal. Se cambia en `infra/litellm-config.yaml` →
-[modelos.md](modelos.md#el-diseñador-necesita-visión).
+Si no devuelve el texto de la captura, no hay un modelo gratuito de visión
+disponible. Revisá `auto/multimodal:free` y sus proveedores en OmniRoute.
 
 **El bucle revirtió los cambios.** Funcionando como debe: la accesibilidad
 empeoró y volvió al punto de retorno. Las dos capturas llegaron al celular para

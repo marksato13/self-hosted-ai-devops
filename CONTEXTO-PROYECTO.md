@@ -1,13 +1,15 @@
 # CONTEXTO DEL PROYECTO — `self-hosted-ai-devops`
 
 > **Para qué sirve este archivo:** es el documento de traspaso. Se pega (o se referencia) en Claude Code / Codex para que cualquier agente retome el trabajo sin volver a explicar nada.
-> **Última actualización:** 2026-08-06 · **Estado:** runner y CI implementados; despliegue en VM pendiente.
+> **Última actualización:** 2026-08-07 · **Estado:** OmniRoute desplegado y capa gratuita verificada; falta Codex OAuth.
 
 ---
 
 ## 1. Resumen en una línea
 
-Flota personal de agentes de IA, autohospedada en un ESXi propio, comandada desde el celular por Telegram, capaz de avanzar un repo de GitHub sola (rama → código → tests → PR), combinando un modelo caro para planificar/revisar con modelos chinos baratos para ejecutar.
+Flota personal de agentes de IA, autohospedada en un ESXi propio, comandada
+desde Telegram y enrutada por OmniRoute entre Codex Plus y capas gratuitas, sin
+costo adicional de API.
 
 **Repo destino:** https://github.com/marksato13/self-hosted-ai-devops.git — público, vacío, pendiente de inicializar.
 
@@ -90,7 +92,9 @@ Solo convendría Desktop si un agente tuviera que manejar un navegador con inter
 
 **El diseño original de los perfiles de Codex no habría funcionado.** Desde febrero de 2026, Codex CLI solo acepta `wire_api = "responses"`; el valor `"chat"` fue eliminado y los proveedores externos deben hablar la Responses API. DeepSeek, Bailian y Zhipu exponen Chat Completions. Los perfiles `deepseek`, `qwen` y `glm` habrían fallado recién en la fase de instalación de Codex, con toda la infraestructura ya montada.
 
-**Solución: LiteLLM como gateway.** Recibe `/v1/responses` de Codex y traduce a `/chat/completions` de cada proveedor. De paso resuelve el tope de gasto (lo aplica el gateway, no un `.env`), el registro de costo por agente y los *fallbacks* si un proveedor se cae.
+**Solución actual: OmniRoute como gateway.** Recibe `/v1/responses`, conecta
+Codex mediante la suscripción existente y enruta a capas gratuitas con fallback.
+La ruta de volumen termina en `:free` y no se guardan claves comerciales.
 
 Tres piezas más que se incorporaron del ecosistema open source:
 

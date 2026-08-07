@@ -1,6 +1,8 @@
 # Seguridad
 
-Este sistema es una máquina en tu casa que tiene un token de GitHub, cuatro claves de API y permiso para ejecutar comandos, controlada por un bot público de Telegram. Vale la pena dedicarle una página.
+Este sistema es una máquina en tu casa que tiene acceso a GitHub, credenciales
+OAuth cifradas y permiso para ejecutar comandos, controlada por un bot público
+de Telegram. Vale la pena dedicarle una página.
 
 ---
 

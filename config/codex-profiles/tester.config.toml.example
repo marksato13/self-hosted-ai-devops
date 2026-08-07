@@ -1,4 +1,4 @@
-model = "tester"
-model_provider = "gateway_tester"
+model = "auto/coding:free"
+model_provider = "omniroute"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

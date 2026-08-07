@@ -204,7 +204,8 @@ codex "responde solo con la palabra: ok"
 
 Eso prueba tres cosas de una vez: el binario corre, la sesión es válida y hay cuota.
 
-> 💡 Esto usa tu **suscripción de ChatGPT Plus**, no las claves de API. Las cuatro claves son para la flota, no para el implementador.
+> 💡 Esto usa tu **suscripción de ChatGPT Plus**. La flota tampoco requiere
+> claves comerciales: OmniRoute combina Codex OAuth y capas gratuitas.
 
 ---
 
@@ -255,7 +256,7 @@ printf '%s' 'sk-...' | codex login --with-api-key
 O leyéndola de una variable, para que no quede en el historial del shell:
 
 ```bash
-printenv OPENAI_API_KEY | codex login --with-api-key
+codex login
 ```
 
 **Verificación:**
@@ -347,7 +348,7 @@ Confundirlos es lo que más tiempo cuesta después, porque los síntomas aparece
 
 | | **El implementador** (paso 7) | **El de la flota** (T028–T031) |
 |---|---|---|
-| Se autentica con | Tu suscripción ChatGPT Plus | Una clave virtual de LiteLLM |
+| Se autentica con | Tu suscripción ChatGPT Plus | Una clave local de OmniRoute |
 | Cómo se invoca | `codex "…"` — perfil por defecto | `codex --profile backend "…"` |
 | Para qué sirve | Montar este sistema | Escribir código en el repositorio objetivo |
 
@@ -361,7 +362,7 @@ También hay dos, y tampoco es un error:
 
 ```
 ~/self-hosted-ai-devops            ← la INFRAESTRUCTURA que corre la flota
-                                      .env, docker compose, LiteLLM, OpenClaw
+                                      .env, Docker Compose, OmniRoute, OpenClaw
 
 ~/workspace/self-hosted-ai-devops  ← el REPOSITORIO sobre el que la flota trabaja
                                       worktrees, ramas, PRs

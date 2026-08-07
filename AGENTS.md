@@ -26,7 +26,7 @@ aplicación: no hay código que compilar ni tests que correr todavía.
 
 ```
 docs/           documentación (la mayor parte del repo)
-infra/          docker-compose de OpenClaw y LiteLLM, specs de la VM
+infra/          docker-compose de OpenClaw y OmniRoute, specs de la VM
 infra/shotter/  imagen con Chromium headless para el bucle visual
 config/         plantillas de configuración (solo archivos .example)
 scripts/        worktrees, integración y bucle visual
@@ -61,7 +61,7 @@ integra/issue-12      ← solo la crea el Revisor
 **Commits:** imperativo, una línea, en español.
 
 ```
-Agrega la fase de LiteLLM a la guía de instalación
+Agrega la fase de OmniRoute a la guía de instalación
 ```
 
 **Documentación:** los diagramas van en Mermaid dentro del `.md`, para que
