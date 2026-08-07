@@ -28,6 +28,11 @@ solicitar-issue 12
 El script rechaza texto, opciones, rutas, comodines y solicitudes duplicadas.
 La petición queda en `AI_QUEUE_DIR` con permisos privados.
 
+Cuando `AI_AUTONOMOUS_MODE=on`, el timer selecciona de forma determinista el
+primer issue abierto con `agente:lista` y sin `bloqueada`. Solo lo hace si no
+hay otra tarea ni un PR de integración abierto. El modo permanece apagado hasta
+superar la prueba de allowlist T027.
+
 Los comandos cerrados, la frontera de confianza y el diseño de aprobación en
 dos fases se especifican en [ciclo-autonomo.md](ciclo-autonomo.md). No existe
 una ruta de Telegram a una shell arbitraria.

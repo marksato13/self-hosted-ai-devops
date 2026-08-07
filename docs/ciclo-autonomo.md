@@ -53,12 +53,13 @@ El contrato previsto de Nexo acepta únicamente estas intenciones:
 |---|---|
 | `issue 12` | Encolar el issue numérico 12 una sola vez |
 | `estado` | Consultar tarea activa, cola, último PR y bloqueo |
-| `pausar` | Impedir que empiece otra tarea; no mata la activa |
+| `detener` | Impedir que empiece otra tarea; no mata la activa |
 | `reanudar` | Quitar la pausa y despertar el reconciliador |
 | `aprobar PR 7` | Iniciar la primera fase de aprobación |
 | `confirmar ABC123` | Confirmar el merge con código efímero |
 | `rechazar PR 7` | Rechazar la aprobación; no borra ramas |
-| `cancelar issue 12` | Solicitar cancelación segura, sin shell libre |
+| `errores 12` | Mostrar un resumen redactado del fallo, nunca el log completo |
+| `siguiente` | Encolar el primer issue elegible con `agente:lista` |
 
 No se interpretan comandos Bash, rutas, opciones ni texto procedente de un
 issue como instrucciones del sistema. Un mensaje de una cuenta fuera de
@@ -105,8 +106,11 @@ estado nunca depende solamente del texto de un log.
 7. Un fallo se reintenta hasta `MAX_RETRIES_PER_TASK`; la espera crece según el
    número de intento. Al agotarse, la solicitud pasa a `fallidas/`.
 
-El scheduler no crea trabajo por iniciativa propia: procesa exclusivamente
-issues que una persona haya puesto en alcance.
+Con `AI_AUTONOMOUS_MODE=on`, el reconciliador también encola el primer issue
+abierto con la etiqueta `agente:lista`, siempre que no exista otra tarea ni un
+PR `integra/issue-*` abierto. La etiqueta es el límite de alcance: el runner no
+crea requisitos ni elige elementos sin ella. El valor predeterminado es `off`
+y no debe cambiarse hasta verificar T027 desde una segunda cuenta.
 
 ## Aprobación en dos fases
 

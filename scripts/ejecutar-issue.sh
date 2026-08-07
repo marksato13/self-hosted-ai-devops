@@ -5,8 +5,9 @@ ISSUE="${1:-}"
 [[ "$ISSUE" =~ ^[0-9]+$ ]] || { echo "Uso: $0 <numero-de-issue>" >&2; exit 64; }
 
 REPO_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$REPO_RAIZ/.env}"
 set -a
-[[ -f "$REPO_RAIZ/.env" ]] && source "$REPO_RAIZ/.env"
+[[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
 set +a
 
 # shellcheck source=scripts/lib/estado.sh

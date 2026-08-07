@@ -10,7 +10,9 @@ crear_fixture
 
 CONTROL="$FIXTURE/control-app"
 mkdir -p "$CONTROL/scripts" "$AI_QUEUE_DIR/control" "$AI_QUEUE_DIR/fallidas"
+mkdir -p "$CONTROL/scripts/lib"
 cp "$REPO_ROOT/scripts/control-flota.sh" "$REPO_ROOT/scripts/procesar-control.sh" "$CONTROL/scripts/"
+cp "$REPO_ROOT/scripts/lib/estado.sh" "$CONTROL/scripts/lib/"
 cat >"$CONTROL/scripts/reportar.sh" <<'EOF'
 #!/usr/bin/env bash
 printf '%s|%s\n' "${TELEGRAM_DESTINO_CHAT_ID:-}" "$1" >>"${FAKE_LOG_DIR:?}/telegram.messages"
