@@ -20,7 +20,7 @@ services:
   #  Base de datos de LiteLLM
   # ----------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     container_name: litellm-db
     restart: unless-stopped
     environment:
@@ -44,7 +44,7 @@ services:
   #  Ver docs/decisiones.md — ADR-010
   # ----------------------------------------------------------
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: ghcr.io/berriai/litellm:main-stable@sha256:af806882b7a6ced41658db5b6a7e98ed7b9b51d03b935e0417bf1c8552d688af
     container_name: litellm
     restart: unless-stopped
     depends_on:
@@ -66,7 +66,11 @@ services:
       # No exponer a la LAN ni redirigir en el router.
       - "127.0.0.1:4000:4000"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:4000/health/liveliness"]
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=5)"
       interval: 30s
       timeout: 10s
       retries: 3

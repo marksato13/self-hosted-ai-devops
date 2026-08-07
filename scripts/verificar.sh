@@ -70,7 +70,7 @@ fase2() {
   echo "── FASE 2 · Ubuntu Server ──"
   chk T007 "Ubuntu LTS compatible instalado" 'grep -qE "VERSION_ID=\"(24.04|26.04)\"" /etc/os-release'
   chk T008 "Utilidades base instaladas"    'command -v git && command -v curl && command -v jq && command -v openssl'
-  chk T009 "Firewall ufw activo"           'sudo -n ufw status 2>/dev/null | grep -q "Status: active"'
+  chk T009 "Firewall ufw activo"           'systemctl is-active --quiet ufw && grep -q "^ENABLED=yes" /etc/ufw/ufw.conf'
 }
 
 fase3() {

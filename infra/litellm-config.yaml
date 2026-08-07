@@ -87,7 +87,9 @@ router_settings:
 
   # No reintentar en bucle: un agente colgado quema créditos de noche.
   num_retries: 2
-  request_timeout: 600      # 10 min: una tarea de código puede tardar
+  # El tiempo máximo del proceso lo aplica scripts/ejecutar-issue.sh.
+  # No se configura aquí: `request_timeout` dejó de ser un argumento válido
+  # del Router en LiteLLM 1.95.0.
 
 
 general_settings:
