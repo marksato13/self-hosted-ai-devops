@@ -248,14 +248,20 @@ TELEGRAM_ALLOWED_CHAT_IDS=123456789      # tu chat_id, y nadie más
 
 ## Fase 7 — OpenClaw
 
-> ⚠️ El nombre de la imagen y las variables de OpenClaw **deben confirmarse en su documentación oficial**. El compose de este repo es una plantilla parametrizada, no una configuración probada.
+La imagen fijada en `.env.example` y la configuración siguiente fueron
+validadas con OpenClaw 2026.7.1-2. El token no se escribe en `openclaw.json`:
+queda referenciado desde la variable `TELEGRAM_BOT_TOKEN`.
 
 ```bash
-nano ~/self-hosted-ai-devops/.env    # completar OPENCLAW_IMAGE
 cd ~/self-hosted-ai-devops
-docker compose --env-file .env -f infra/docker-compose.yml up -d
+./scripts/configurar-openclaw.sh
+./scripts/verificar.sh 7
 docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway
 ```
+
+El script fija `gateway.mode=local`, autenticación por token, mensajes directos
+en modo `allowlist` y grupos deshabilitados. La configuración persiste en
+`${OPENCLAW_CONFIG_DIR}/openclaw.json` con permisos `600`.
 
 ### Las dos pruebas de la allowlist
 
