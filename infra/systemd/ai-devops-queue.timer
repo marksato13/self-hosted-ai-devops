@@ -1,0 +1,12 @@
+[Unit]
+Description=Reconcilia periódicamente la cola de la flota de IA
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+Persistent=true
+Unit=ai-devops-queue.service
+
+[Install]
+WantedBy=timers.target
