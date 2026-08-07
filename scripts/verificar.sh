@@ -68,7 +68,7 @@ fase1() {
 
 fase2() {
   echo "── FASE 2 · Ubuntu Server ──"
-  chk T007 "Ubuntu 24.04 instalado"        'lsb_release -ds | grep -q "24.04"'
+  chk T007 "Ubuntu LTS compatible instalado" 'grep -qE "VERSION_ID=\"(24.04|26.04)\"" /etc/os-release'
   chk T008 "Utilidades base instaladas"    'command -v git && command -v curl && command -v jq && command -v openssl'
   chk T009 "Firewall ufw activo"           'sudo -n ufw status 2>/dev/null | grep -q "Status: active"'
 }

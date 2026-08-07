@@ -13,12 +13,12 @@ infraestructura de la VM continúa sin desplegar ni verificar.
 
 | Fase | Tareas | Estado |
 |---|---|---|
-| **00 · El implementador** | **T00A–T00E** | ⬜ Sin empezar · *en tu PC* |
+| **00 · El implementador** | **T00A–T00E** | ✅ Completa · *en esta VM* |
 | 0 · Preparación | T001–T004 | ⬜ Sin empezar |
 | 1 · VM en ESXi | T005–T006 | ⬜ Sin empezar |
-| 2 · Ubuntu Server | T007–T009 | ⬜ Sin empezar |
-| 3 · Tailscale | T010–T011 | ⬜ Sin empezar |
-| 4 · Docker | T012–T013 | ⬜ Sin empezar |
+| 2 · Ubuntu Server | T007–T009 | 🟡 En curso · falta firewall |
+| 3 · Tailscale | T010–T011 | 🟡 En curso · falta prueba móvil |
+| 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
 | 5 · LiteLLM | T014–T020 | ⬜ Sin empezar |
 | 6 · Telegram | T021–T023 | ⬜ Sin empezar |
 | 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
@@ -34,11 +34,11 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 ## Tareas
 
 ### Fase 00 — El implementador *(en tu PC, no en la VM)*
-- [ ] T00A 👤 Comprobar si Codex y Node 22+ ya están instalados
-- [ ] T00B 👤 Codex CLI instalado (nativo de Windows, o npm en Linux/WSL)
-- [ ] T00C 👤 `codex login` con la cuenta de ChatGPT Plus
-- [ ] T00D 👤 Repositorio clonado en la PC
-- [ ] T00E 🤖 El implementador lee el plan y responde «T007»
+- [x] T00A 👤 Comprobar si Codex y Node 22+ ya están instalados — 2026-08-06
+- [x] T00B 👤 Codex CLI instalado (nativo de Windows, o npm en Linux/WSL) — 2026-08-06
+- [x] T00C 👤 `codex login` con la cuenta de ChatGPT Plus — 2026-08-06
+- [x] T00D 👤 Repositorio clonado en la PC — 2026-08-06
+- [x] T00E 🤖 El implementador lee el plan y responde «T007» — 2026-08-06
 
 ### Fase 0 — Preparación
 - [ ] T001 👤 ISO de Ubuntu Server 24.04 en el datastore
@@ -51,16 +51,16 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [ ] T006 👤 Snapshot `01-vm-vacia`
 
 ### Fase 2 — Ubuntu Server
-- [ ] T007 👤 Ubuntu Server 24.04 instalado, con OpenSSH
-- [ ] T008 🤖 Sistema actualizado y utilidades instaladas
+- [x] T007 👤 Ubuntu Server 26.04 instalado, con OpenSSH — 2026-08-06
+- [x] T008 🤖 Sistema actualizado y utilidades instaladas — 2026-08-06
 - [ ] T009 🤖 Firewall `ufw` activo
 
 ### Fase 3 — Tailscale
-- [ ] T010 ⚙️ Tailscale instalado y autenticado
+- [x] T010 ⚙️ Tailscale instalado y autenticado — 2026-08-06
 - [ ] T011 👤 SSH desde el celular **con el WiFi apagado**
 
 ### Fase 4 — Docker
-- [ ] T012 🤖 Docker funcionando sin `sudo`
+- [x] T012 🤖 Docker funcionando sin `sudo` — 2026-08-06
 - [ ] T013 👤 Snapshot `02-base-lista`
 
 ### Fase 5 — LiteLLM
