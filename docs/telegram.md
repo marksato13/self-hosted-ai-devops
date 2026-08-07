@@ -48,8 +48,8 @@ flowchart LR
 Escribir al bot desde la cuenta incluida en `TELEGRAM_ALLOWED_CHAT_IDS`:
 
 ```text
-ayuda
-estado
+/flota ayuda
+/flota estado
 ```
 
 Respuesta esperada a `ayuda`:
@@ -98,27 +98,27 @@ tokens, cookies, claves, contraseñas, `.env` completo ni logs sin redactar.
 
 ## 4. Comandos exactos
 
-Los comandos se escriben sin `/`. `N`, `PR` y `CODIGO` son valores que Nexo
-entrega; no deben incluir texto adicional.
+Las operaciones críticas se escriben **con `/`**. OpenClaw las procesa antes
+del modelo mediante el plugin local `flota-control`; así funcionan aunque el
+modelo esté saturado, falle con 401 o termine sin producir una respuesta.
+`N`, `PR` y `CODIGO` son valores que Nexo entrega y no llevan texto adicional.
 
 | Comando | Resultado |
 |---|---|
-| `ayuda` | Lista el contrato disponible. |
-| `estado` | Resume flota, tarea, cola, PR y aprobación. |
-| `siguiente` | Encola el siguiente issue con `agente:lista`. |
-| `issue 12` | Encola únicamente el issue 12. |
-| `errores` | Resume fallos recientes sin exponer logs. |
-| `errores 12` | Resume el fallo del issue 12. |
-| `detener` | Pausa la admisión; la tarea activa termina de forma controlada. |
-| `reanudar` | Quita la pausa y despierta el reconciliador. |
-| `aprobar 18` | Valida PR 18 y genera un código efímero para ese PR y SHA. |
-| `aprobar todo` | Prepara un lote inmutable de PR aprobables y genera un código efímero. |
-| `confirmar CODIGO` | Ejecuta la aprobación individual o por lote ligada al código. |
-| `rechazar 18` | Rechaza/cierra el PR de integración 18; no borra evidencia. |
+| `/flota ayuda` | Lista el contrato disponible. |
+| `/flota estado` | Resume flota, tarea, cola, PR y aprobación. |
+| `/flota siguiente` | Encola el siguiente issue con `agente:lista`. |
+| `/flota issue 12` | Encola únicamente el issue 12. |
+| `/flota errores` o `/flota errores 12` | Resume fallos sin exponer logs. |
+| `/flota detener` | Pausa la admisión; la tarea activa termina de forma controlada. |
+| `/flota reanudar` | Quita la pausa y despierta el reconciliador. |
+| `/aprobar 18` | Valida PR 18 y genera un código efímero para ese PR y SHA. |
+| `/aprobar_todo` | Prepara un lote inmutable de PR aprobables y genera un código efímero. |
+| `/confirmar CODIGO` | Ejecuta la aprobación individual o por lote ligada al código. |
+| `/rechazar 18` | Rechaza/cierra el PR de integración 18; no borra evidencia. |
 
-Por compatibilidad, la interfaz puede mostrar `aprobar PR 18` y
-`rechazar PR 18`, pero el ejecutable cerrado recibe `aprobar 18` y
-`rechazar 18`.
+El texto conversacional puede seguir usándose para consultas, pero no debe
+usarse para aprobar o cambiar estado: depende de la respuesta del modelo.
 
 ## 5. Elegir cómo aprobar
 

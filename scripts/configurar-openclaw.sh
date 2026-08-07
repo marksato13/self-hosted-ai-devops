@@ -49,11 +49,11 @@ patch="$(jq -nc --argjson ids "$ids_json" '{
     }}
   },
   agents:{defaults:{model:{primary:"omniroute/oc/big-pickle"}}},
-  tools:{
-    allow:["exec"],
-    # OpenClaw 2026.7.1-2 todavía valida `timeoutSec`; versiones posteriores
-    # lo renombran a `timeoutSeconds`.
-    exec:{host:"gateway",mode:"allowlist",strictInlineEval:true,timeoutSec:15}
+  tools:{allow:[]},
+  plugins:{
+    enabled:true,
+    load:{paths:["/opt/openclaw-plugins/flota-control"]},
+    entries:{"flota-control":{enabled:true}}
   },
   channels: {telegram:{
     enabled:true,
@@ -68,9 +68,8 @@ printf '%s' "$patch" | docker compose --env-file "$ENV_FILE" -f "$COMPOSE" \
   run --rm -T --entrypoint node openclaw-gateway \
   dist/index.js config patch --stdin >/dev/null
 
-# Segunda capa: aunque el modelo tenga exec, el host solo acepta este binario y
-# la gramática cerrada de argumentos. Se reemplaza atómicamente sin perder el
-# token del socket que OpenClaw pudiera haber creado.
+# No se permite exec desde el modelo. Los comandos críticos los procesa el
+# plugin flota-control antes del LLM y solo deposita sobres JSON validados.
 APROBACIONES="$OPENCLAW_CONFIG_DIR/exec-approvals.json"
 mkdir -p "$OPENCLAW_CONFIG_DIR"
 tmp_aprobaciones="$(mktemp "$OPENCLAW_CONFIG_DIR/.exec-approvals.XXXXXX")"
@@ -79,27 +78,13 @@ if [[ -f "$APROBACIONES" ]]; then
   jq '
     .version = 1 |
     .defaults = {security:"deny",ask:"off",askFallback:"deny",autoAllowSkills:false} |
-    .agents.main = {
-      security:"allowlist", ask:"off", askFallback:"deny", autoAllowSkills:false,
-      allowlist:[{
-        pattern:"/usr/local/bin/control-flota",
-        argPattern:"^(estado|siguiente|detener|reanudar|ayuda|aprobar-todo)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
-        source:"configuracion-administrada"
-      }]
-    }
+    .agents.main = {security:"deny",ask:"off",askFallback:"deny",autoAllowSkills:false,allowlist:[]}
   ' "$APROBACIONES" >"$tmp_aprobaciones"
 else
   jq -n '{
     version:1,
     defaults:{security:"deny",ask:"off",askFallback:"deny",autoAllowSkills:false},
-    agents:{main:{
-      security:"allowlist",ask:"off",askFallback:"deny",autoAllowSkills:false,
-      allowlist:[{
-        pattern:"/usr/local/bin/control-flota",
-        argPattern:"^(estado|siguiente|detener|reanudar|ayuda|aprobar-todo)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
-        source:"configuracion-administrada"
-      }]
-    }}
+    agents:{main:{security:"deny",ask:"off",askFallback:"deny",autoAllowSkills:false,allowlist:[]}}
   }' >"$tmp_aprobaciones"
 fi
 chmod 600 "$tmp_aprobaciones"
