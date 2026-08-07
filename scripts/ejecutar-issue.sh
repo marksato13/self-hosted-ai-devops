@@ -17,6 +17,22 @@ command -v codex >/dev/null || { echo "Falta codex." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
 command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
 
+# Algunas VMs (incluido este host) deshabilitan user namespaces y bubblewrap no
+# puede crear el sandbox aunque Codex esté instalado correctamente. Conservamos
+# el sandbox cuando es viable; en ese entorno concreto usamos el modo completo
+# sobre el repositorio objetivo, que ya está aislado por el servicio systemd.
+codex_sandbox() {
+  local solicitado="$1"
+  if [[ -n "${CODEX_SANDBOX_MODE:-}" ]]; then
+    printf '%s' "$CODEX_SANDBOX_MODE"
+  elif unshare -Ur true >/dev/null 2>&1; then
+    printf '%s' "$solicitado"
+  else
+    echo "Aviso: user namespaces no disponibles; Codex usará danger-full-access en este host." >&2
+    printf '%s' danger-full-access
+  fi
+}
+
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
 TARGET_REPO="${AI_TARGET_REPO_DIR:-$HOME/workspace/$REPO}"
@@ -33,13 +49,6 @@ git -C "$TARGET_REPO" rev-parse --show-toplevel >/dev/null 2>&1 || {
 exec 9>"$ESTADO/.lock"
 flock -n 9 || { echo "El issue #$ISSUE ya está ejecutándose." >&2; exit 75; }
 
-finalizar_estado() {
-  local rc=$?
-  if [[ $rc -ne 0 ]]; then
-    ai_estado_guardar "$ISSUE" failed "$INTENTO" "ejecución terminada con código $rc"
-  fi
-}
-trap finalizar_estado EXIT
 ai_estado_guardar "$ISSUE" planning "$INTENTO" "planificando issue"
 
 gh issue view "$ISSUE" --repo "$OWNER/$REPO" \
@@ -52,14 +61,28 @@ jq -e '.state == "OPEN"' "$ESTADO/issue.json" >/dev/null || {
 PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 {
   echo "Planifica el issue de GitHub adjunto para tres roles independientes."
-  echo "No modifiques archivos. Devuelve únicamente el JSON solicitado."
+  echo "No modifiques archivos. Devuelve únicamente JSON válido, sin markdown, con esta forma exacta:"
+  echo '{"resumen":"...","subtareas":[{"agente":"backend|tests|docs","descripcion":"...","criterio_aceptacion":"..."}]}'
+  echo "Usa como máximo una subtarea por agente y únicamente esos tres valores de agente."
   jq . "$ESTADO/issue.json"
 } > "$PROMPT_PLAN"
 
-timeout "$TIMEOUT" codex exec -p planner -s read-only -C "$TARGET_REPO" \
+PLANNER_MODEL="${CODEX_PLANNER_MODEL:-cx/gpt-5.6-sol}"
+timeout "$TIMEOUT" codex exec -p planner -m "$PLANNER_MODEL" -s "$(codex_sandbox read-only)" -C "$TARGET_REPO" \
   --output-schema "$REPO_RAIZ/config/plan.schema.json" \
   -o "$ESTADO/plan.json" - < "$PROMPT_PLAN"
 jq -e . "$ESTADO/plan.json" >/dev/null
+jq -e '
+  (.resumen | type == "string" and length > 0) and
+  (.subtareas | type == "array" and length >= 1 and length <= 3) and
+  (all(.subtareas[]; (.agente == "backend" or .agente == "tests" or .agente == "docs") and
+    (.descripcion | type == "string" and length > 0) and
+    (.criterio_aceptacion | type == "string" and length > 0))) and
+  (([.subtareas[].agente] | unique | length) == (.subtareas | length))
+' "$ESTADO/plan.json" >/dev/null || {
+  echo "El planificador devolvió un plan incompatible con config/plan.schema.json." >&2
+  exit 65
+}
 
 ai_estado_guardar "$ISSUE" running "$INTENTO" "agentes en ejecución"
 
