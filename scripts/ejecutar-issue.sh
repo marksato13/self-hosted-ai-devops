@@ -115,7 +115,14 @@ AGENTES_MENSAJE="$(IFS=,; echo "${AGENTES[*]}")"
 ai_notificar_agentes "$ISSUE" "$AGENTES_MENSAJE"
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/nueva-tarea.sh" "$ISSUE" "${AGENTES[@]}")
 
+AGENT_PARALLELISM="${AI_AGENT_CONCURRENCY:-1}"
+[[ "$AGENT_PARALLELISM" =~ ^[1-9][0-9]*$ ]] || AGENT_PARALLELISM=1
 pids=()
+ejecutar_agente() {
+  local agente="$1" perfil="$2" wt="$3" modelo_agente="$4"
+  timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo_agente" -s "$(codex_sandbox workspace-write)" -C "$wt" \
+    -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
+}
 for agente in "${AGENTES[@]}"; do
   perfil="$agente"; [[ "$agente" == tests ]] && perfil=tester
   wt="$(dirname "$TARGET_REPO")/worktrees/issue-${ISSUE}-${agente}"
@@ -129,17 +136,22 @@ for agente in "${AGENTES[@]}"; do
     docs) modelo_agente="${CODEX_DOCS_MODEL:-cx/gpt-5.5}" ;;
     *) modelo_agente="${CODEX_AGENT_MODEL:-cx/gpt-5.6-terra}" ;;
   esac
-  (
-    timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo_agente" -s "$(codex_sandbox workspace-write)" -C "$wt" \
-      -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
-  ) >"$ESTADO/${agente}.log" 2>&1 &
-  pids+=("$!")
+  if (( AGENT_PARALLELISM == 1 )); then
+    ejecutar_agente "$agente" "$perfil" "$wt" "$modelo_agente" >"$ESTADO/${agente}.log" 2>&1 || pids+=("failed:$agente")
+  else
+    ( ejecutar_agente "$agente" "$perfil" "$wt" "$modelo_agente" ) >"$ESTADO/${agente}.log" 2>&1 &
+    pids+=("$!")
+  fi
 done
 
 fallos=0
 fallos_proveedor=0
 for pid in "${pids[@]}"; do
-  wait "$pid" || ((fallos+=1))
+  if [[ "$pid" == failed:* ]]; then
+    ((fallos+=1))
+  else
+    wait "$pid" || ((fallos+=1))
+  fi
 done
 if (( fallos > 0 )); then
   for agente in "${AGENTES[@]}"; do
