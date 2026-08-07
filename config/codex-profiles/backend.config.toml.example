@@ -1,4 +1,4 @@
-model = "backend"
-model_provider = "gateway_backend"
+model = "auto/coding"
+model_provider = "omniroute"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

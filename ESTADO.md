@@ -4,8 +4,8 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 
 **Para el agente:** este archivo es tu punto de reanudación. Al empezar una sesión, leelo primero: la última tarea marcada indica dónde continuar. Al terminar una tarea verificada, marcá su casilla y anotá la fecha. Si una tarea falla dos veces, marcala 🔴 y anotá el error en «Incidencias».
 
-**Estado general:** runner, cola y CI implementados en el repositorio. La
-infraestructura de la VM continúa sin desplegar ni verificar.
+**Estado general:** OmniRoute desplegado y ruta gratuita verificada. Falta
+autorizar Tailscale Serve y conectar Codex OAuth desde el navegador.
 
 ---
 
@@ -19,7 +19,7 @@ infraestructura de la VM continúa sin desplegar ni verificar.
 | 2 · Ubuntu Server | T007–T009 | ✅ Completa |
 | 3 · Tailscale | T010–T011 | 🟡 En curso · falta prueba móvil |
 | 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
-| 5 · LiteLLM | T014–T020 | 🟡 En curso · faltan proveedores y claves virtuales |
+| 5 · OmniRoute | T014–T020 | 🟡 En curso · falta Codex OAuth por navegador |
 | 6 · Telegram | T021–T023 | ⬜ Sin empezar |
 | 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
 | 8 · Codex CLI | T028–T031 | ⬜ Sin empezar |
@@ -42,8 +42,8 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 
 ### Fase 0 — Preparación
 - [ ] T001 👤 ISO de Ubuntu Server 24.04 en el datastore
-- [ ] T002 👤 Cuatro claves de API obtenidas
-- [ ] T003 👤 ⚠️ Topes de gasto en las cuatro consolas
+- [x] T002 👤 Suscripción ChatGPT Plus disponible — 2026-08-07
+- [x] T003 👤 Política sin rutas de pago definida — 2026-08-07
 - [ ] T004 👤 Cuenta de Tailscale + app en el celular
 
 ### Fase 1 — VM en ESXi
@@ -63,14 +63,14 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T012 🤖 Docker funcionando sin `sudo` — 2026-08-06
 - [ ] T013 👤 Snapshot `02-base-lista`
 
-### Fase 5 — LiteLLM
+### Fase 5 — OmniRoute
 - [x] T014 🤖 Repositorio clonado en la VM — 2026-08-07
 - [x] T015 🤖 `.env` creado con permisos `600` — 2026-08-07
 - [x] T016 🤖 Claves internas generadas — 2026-08-07
-- [ ] T017 ⚙️ Cuatro claves de proveedor cargadas
+- [x] T017 🤖 Claves comerciales eliminadas de `.env` — 2026-08-07
 - [x] T018 🤖 Gateway levantado y respondiendo — 2026-08-07
-- [ ] T019 🤖 Los cinco modelos responden
-- [ ] T020 🤖 Claves virtuales con presupuesto de 5 USD
+- [x] T019 🤖 `auto/coding:free` responde con costo cero — 2026-08-07
+- [ ] T020 👤 Codex OAuth y OpenCode Free confirmados en dashboard
 
 ### Fase 6 — Telegram
 - [ ] T021 👤 Bot creado en BotFather

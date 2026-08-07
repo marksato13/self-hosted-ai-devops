@@ -35,8 +35,10 @@ HOME="$tmp/home" ENV_DESTINO="$tmp/config/.env" \
 test "$(stat -c %a "$tmp/config/.env")" = 600 || ((fallos+=1))
 test "$(stat -c %a "$tmp/home/.openclaw")" = 700 || ((fallos+=1))
 test "$(stat -c %a "$tmp/home/.local/state/ai-devops/queue")" = 700 || ((fallos+=1))
-grep -q '^LITELLM_MASTER_KEY=sk-.' "$tmp/config/.env" || ((fallos+=1))
-grep -q '^POSTGRES_PASSWORD=.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^OMNIROUTE_JWT_SECRET=.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^OMNIROUTE_API_KEY_SECRET=.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^OMNIROUTE_STORAGE_ENCRYPTION_KEY=.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^OMNIROUTE_INITIAL_PASSWORD=.' "$tmp/config/.env" || ((fallos+=1))
 grep -q '^OPENCLAW_GATEWAY_TOKEN=.' "$tmp/config/.env" || ((fallos+=1))
 probar_fallo "no sobrescribe un entorno existente" env HOME="$tmp/home" \
   ENV_DESTINO="$tmp/config/.env" "$REPO_RAIZ/scripts/preparar-entorno.sh"

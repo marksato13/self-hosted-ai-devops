@@ -1,4 +1,4 @@
-model = "reviewer"
-model_provider = "gateway_reviewer"
+model = "auto/coding"
+model_provider = "omniroute"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

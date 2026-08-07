@@ -15,15 +15,16 @@ Los seis roles de la flota. Todos son **el mismo binario** —Codex CLI— invoc
 | 5 | **Revisor** | `reviewer` | GPT-5.1 | repo principal | `integra/issue-<n>` + PR en borrador |
 | 6 | **Diseñador** | `designer` | GLM-4.5V *(visión)* | solo lee capturas | ninguna — propone, no escribe |
 
-Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 usan el mismo modelo pero perfiles distintos, para que el gasto de planificar quede separado del de revisar en el registro de LiteLLM.
+Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 conservan perfiles distintos aunque OmniRoute pueda elegir el mismo proveedor.
 
-> Los nombres de perfil son **alias**, no modelos reales: se resuelven en [`infra/litellm-config.yaml`](../infra/litellm-config.yaml). Cambiar de modelo se hace allá y no toca ni la configuración de Codex ni estos prompts.
+> Los perfiles apuntan a categorías dinámicas de OmniRoute. `auto/coding`
+> puede usar Codex Plus; `auto/coding:free` restringe el trabajo a capas gratuitas.
 
 ---
 
 ## 1. Agente Planificador
 
-**Perfil:** `planner` · **Modelo:** definido en LiteLLM · **Costo:** API independiente de ChatGPT
+**Perfil:** `planner` · **Ruta:** `auto/coding` · **Costo adicional:** USD 0
 
 Recibe la orden en lenguaje natural desde Telegram y la convierte en un plan ejecutable. Es el único que ve el problema completo.
 
@@ -147,7 +148,7 @@ Reglas:
 
 ## 5. Agente Revisor
 
-**Perfil:** `reviewer` · **Modelo:** definido en LiteLLM · **Costo:** API independiente de ChatGPT
+**Perfil:** `reviewer` · **Ruta:** `auto/coding` · **Costo adicional:** USD 0
 
 El portero. Es lo único que separa el trabajo de tres modelos baratos de la rama principal.
 
@@ -236,7 +237,7 @@ Flujo completo en [bucle-visual.md](bucle-visual.md).
 |---|---|---|
 | Reintentos por subtarea | 2 | `MAX_RETRIES_PER_TASK` en `.env` |
 | Tiempo por tarea | 30 min | `TASK_TIMEOUT_MINUTES` en `.env` |
-| Presupuesto por agente | 5 USD/mes | Clave virtual de LiteLLM — **la que corta de verdad** |
+| Presupuesto de API | 0 USD/mes | Rutas gratuitas y Codex Plus existente |
 | Escritura en `main` | Prohibida | Branch protection + hook `no-commit-to-branch` |
 | Alcance de archivos | Solo los de su subtarea | Su propio worktree |
 | Commitear un secreto | Bloqueado | Gitleaks en pre-commit |

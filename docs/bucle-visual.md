@@ -231,8 +231,8 @@ imágenes se cobran por tokens y no salen baratas comparadas con texto.
 |---|---|---|
 | Vueltas máximas | 2 | `--vueltas`, y el corte por "sin mejora medible" |
 | Rutas capturadas | 3 | `config/capturas.json` |
-| Presupuesto del Diseñador | 5 USD/mes | Clave virtual en LiteLLM |
-| Modelo | uno de visión barato | `designer` en `infra/litellm-config.yaml` |
+| Presupuesto del Diseñador | 0 USD adicionales | Ruta gratuita de OmniRoute |
+| Modelo | visión disponible | `auto/multimodal:free` |
 
 Tres rutas es una decisión deliberada: cada ruta de más multiplica por tres las
 imágenes (una por viewport) y por tres el costo de cada vuelta.

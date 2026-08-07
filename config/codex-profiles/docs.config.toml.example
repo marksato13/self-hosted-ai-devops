@@ -1,4 +1,4 @@
-model = "docs"
-model_provider = "gateway_docs"
+model = "auto/coding:free"
+model_provider = "omniroute"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

@@ -6,11 +6,13 @@ DESTINO="${CODEX_HOME:-$HOME/.codex}"
 mkdir -p "$DESTINO"
 
 if [[ -e "$DESTINO/config.toml" ]]; then
-  echo "Ya existe $DESTINO/config.toml; no se sobrescribe." >&2
-  exit 73
+  if ! grep -q '^# BEGIN self-hosted-ai-devops OmniRoute$' "$DESTINO/config.toml"; then
+    printf '\n' >> "$DESTINO/config.toml"
+    cat "$REPO_RAIZ/config/codex-omniroute.fragment.toml" >> "$DESTINO/config.toml"
+  fi
+else
+  install -m 0600 "$REPO_RAIZ/config/codex-config.toml.example" "$DESTINO/config.toml"
 fi
-
-install -m 0600 "$REPO_RAIZ/config/codex-config.toml.example" "$DESTINO/config.toml"
 for origen in "$REPO_RAIZ"/config/codex-profiles/*.config.toml.example; do
   nombre="$(basename "$origen" .example)"
   install -m 0600 "$origen" "$DESTINO/$nombre"

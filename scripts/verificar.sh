@@ -55,8 +55,8 @@ fase00() {
 fase0() {
   echo "── FASE 0 · Preparación ──"
   manual T001 "ISO de Ubuntu Server en el datastore"
-  manual T002 "Cuatro claves de API obtenidas"
-  manual T003 "Topes de gasto en las cuatro consolas"
+  manual T002 "Suscripción de Codex disponible"
+  manual T003 "Política sin rutas de pago revisada"
   manual T004 "Cuenta de Tailscale creada"
 }
 
@@ -87,23 +87,20 @@ fase4() {
 }
 
 fase5() {
-  echo "── FASE 5 · LiteLLM ──"
-  chk T014 "Repositorio clonado"           'test -f "$HOME/self-hosted-ai-devops/infra/litellm-config.yaml"'
+  echo "── FASE 5 · OmniRoute ──"
+  chk T014 "Repositorio clonado"           'test -f "$HOME/self-hosted-ai-devops/infra/docker-compose.yml"'
   chk T015 "Permisos 600 en .env"          '[[ "$(stat -c %a "$ENV_FILE")" == "600" ]]'
-  chk T016 "LITELLM_MASTER_KEY generada"   '[[ -n "${LITELLM_MASTER_KEY:-}" && ${#LITELLM_MASTER_KEY} -ge 20 ]]'
-  chk T016 "POSTGRES_PASSWORD generada"    '[[ -n "${POSTGRES_PASSWORD:-}" ]]'
-  for k in OPENAI_API_KEY DEEPSEEK_API_KEY DASHSCOPE_API_KEY ZHIPU_API_KEY; do
-    chk T017 "Clave presente: $k"          "[[ -n \"\${$k:-}\" ]]"
+  for k in OMNIROUTE_JWT_SECRET OMNIROUTE_API_KEY_SECRET OMNIROUTE_STORAGE_ENCRYPTION_KEY OMNIROUTE_INITIAL_PASSWORD; do
+    chk T016 "Secreto local: $k"           "[[ -n \"\${$k:-}\" ]]"
   done
-  chk T018 "Gateway responde"              'curl -fsS http://localhost:4000/health/liveliness'
-  for m in planner backend tester docs reviewer; do
-    chk T019 "Modelo responde: $m" "curl -fsS http://localhost:4000/v1/chat/completions \
-      -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' -H 'Content-Type: application/json' \
-      -d '{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}]}' \
-      | jq -e '.choices[0].message.content'"
-  done
-  chk T020 "Claves virtuales creadas" "curl -fsS http://localhost:4000/key/list \
-    -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' | jq -e '.keys | length >= 5'"
+  chk T017 "Sin claves comerciales en .env" '! grep -qE "^(OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU|MOONSHOT)_API_KEY=" "$ENV_FILE"'
+  chk T018 "Gateway responde"              'curl -fsS http://localhost:20128/api/monitoring/health'
+  chk T019 "Catálogo auto disponible"      'curl -fsS http://localhost:20128/v1/models | jq -e ".data[] | select(.id == \"auto/coding\")"'
+  chk T019 "Ruta gratuita responde"        'curl -fsS --max-time 90 http://localhost:20128/v1/chat/completions \
+    -H "Authorization: Bearer ${OMNIROUTE_API_KEY:-}" -H "Content-Type: application/json" \
+    -d "{\"model\":\"auto/coding:free\",\"messages\":[{\"role\":\"user\",\"content\":\"Responde solamente OK\"}],\"max_tokens\":16}" \
+    | grep -q "content.*OK"'
+  manual T020 "Codex OAuth y proveedor gratuito conectados"
 }
 
 fase6() {
@@ -117,8 +114,7 @@ fase6() {
 fase7() {
   echo "── FASE 7 · OpenClaw ──"
   chk T024 "OPENCLAW_IMAGE definida"       '[[ -n "${OPENCLAW_IMAGE:-}" ]]'
-  chk T025 "Contenedor postgres arriba"    'docker ps --format "{{.Names}}" | grep -q litellm-db'
-  chk T025 "Contenedor litellm arriba"     'docker ps --format "{{.Names}}" | grep -qx litellm'
+  chk T025 "Contenedor OmniRoute arriba"   'docker ps --format "{{.Names}}" | grep -qx omniroute'
   chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw-gateway'
   manual T026 "El bot responde a tu cuenta"
   manual T027 "🔴 El bot IGNORA a otra cuenta"
@@ -129,8 +125,8 @@ fase8() {
   chk T028 "Codex instalado"               'codex --version'
   chk T029 "config.toml presente"          'test -f "$HOME/.codex/config.toml"'
   chk T029 "wire_api = responses"          'grep -q "wire_api = \"responses\"" "$HOME/.codex/config.toml"'
-  chk T029 "Apunta al gateway local"       'grep -q "localhost:4000" "$HOME/.codex/config.toml"'
-  chk T030 "Clave planner en el entorno"   '[[ -n "${LITELLM_KEY_PLANNER:-}" ]]'
+  chk T029 "Apunta al gateway local"       'grep -q "localhost:20128" "$HOME/.codex/config.toml"'
+  chk T030 "Clave local de OmniRoute"      '[[ -n "${OMNIROUTE_API_KEY:-}" ]]'
   for p in planner backend tester docs reviewer; do
     chk T031 "Perfil definido: $p"         "test -f \"\$HOME/.codex/$p.config.toml\""
   done
@@ -173,8 +169,8 @@ fase11() {
   chk T054 "El comparador detecta cambios" 'test -d "${ARTEFACTOS_DIR:-/nada}/cambiado/diff"'
   manual T055 "Imagen recibida en Telegram"
   chk T056 "WHATSAPP_MODO definido"        '[[ "${WHATSAPP_MODO:-}" =~ ^(off|cloud|openclaw)$ ]]'
-  chk T057 "Perfil designer definido"      'grep -q "\[profiles.designer\]" "$HOME/.codex/config.toml"'
-  chk T057 "Alias designer en el gateway"  'grep -q "model_name: designer" "$HOME/self-hosted-ai-devops/infra/litellm-config.yaml"'
+  chk T057 "Perfil designer definido"      'test -f "$HOME/.codex/designer.config.toml"'
+  chk T057 "Designer exige multimodal gratis" 'grep -q "auto/multimodal:free" "$HOME/.codex/designer.config.toml"'
   manual T057 "🔴 El modelo LEE la imagen (no solo responde)"
   chk T058 "scripts del bucle ejecutables" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/bucle-visual.sh"'
 }

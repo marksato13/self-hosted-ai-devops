@@ -1,95 +1,56 @@
-# ============================================================
-#  Stack de la flota
-# ============================================================
-#  Tres servicios:
-#    postgres  — gasto acumulado y claves virtuales de LiteLLM
-#    litellm   — gateway de modelos (traduce API + aplica presupuestos)
-#    openclaw  — orquestador, escucha Telegram
-#
-#  ⚠️ PLANTILLA, NO CONFIGURACIÓN PROBADA EN LA VM DESTINO.
-#
-#  Uso:
-#    cp ../.env.example ../.env    # y completar
-#    docker compose up -d
-#    docker compose logs -f
-# ============================================================
+# Stack autohospedado: OmniRoute gratuito + OpenClaw.
+# Los puertos solo escuchan en loopback; el acceso remoto usa Tailscale.
 
 services:
-
-  # ----------------------------------------------------------
-  #  Base de datos de LiteLLM
-  # ----------------------------------------------------------
-  postgres:
-    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
-    container_name: litellm-db
+  omniroute:
+    # Imagen publicada 3.8.49; manifiesto amd64 fijado por digest.
+    image: diegosouzapw/omniroute@sha256:2bf79cf167478bf283c633ffef2e1e26ba746882e7267fab9320c09df56e8b57
+    container_name: omniroute
     restart: unless-stopped
+    stop_grace_period: 40s
     environment:
-      POSTGRES_USER: litellm
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: litellm
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U litellm"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    # Sin puertos publicados: solo la red interna de Docker.
-
-  # ----------------------------------------------------------
-  #  LiteLLM — gateway de modelos
-  # ----------------------------------------------------------
-  #  Es lo que hace funcionar a DeepSeek/Qwen/GLM con Codex:
-  #  Codex solo habla Responses API, ellos solo Chat Completions.
-  #  Ver docs/decisiones.md — ADR-010
-  # ----------------------------------------------------------
-  litellm:
-    image: ghcr.io/berriai/litellm:main-stable@sha256:af806882b7a6ced41658db5b6a7e98ed7b9b51d03b935e0417bf1c8552d688af
-    container_name: litellm
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    volumes:
-      - ./litellm-config.yaml:/app/config.yaml:ro
-    environment:
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
-      DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD}@postgres:5432/litellm
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
-      ZHIPU_API_KEY: ${ZHIPU_API_KEY}
-      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY}
+      NODE_ENV: production
+      PORT: "20128"
+      HOSTNAME: 0.0.0.0
+      DATA_DIR: /app/data
+      JWT_SECRET: ${OMNIROUTE_JWT_SECRET}
+      API_KEY_SECRET: ${OMNIROUTE_API_KEY_SECRET}
+      STORAGE_ENCRYPTION_KEY: ${OMNIROUTE_STORAGE_ENCRYPTION_KEY}
+      STORAGE_ENCRYPTION_KEY_VERSION: v1
+      INITIAL_PASSWORD: ${OMNIROUTE_INITIAL_PASSWORD}
+      OMNIROUTE_MEMORY_MB: "1024"
+      OMNI_MAX_CONCURRENT_CONNECTIONS: "4"
+      INPUT_SANITIZER_ENABLED: "true"
+      INPUT_SANITIZER_MODE: block
+      INPUT_SANITIZER_BLOCK_THRESHOLD: high
+      PII_REDACTION_ENABLED: "true"
+      PII_RESPONSE_SANITIZATION: "true"
+      AUTH_COOKIE_SECURE: "false"
       TZ: ${TZ:-America/Lima}
+    volumes:
+      - omniroute-data:/app/data
     ports:
-      # Solo local: Codex CLI corre en la misma VM.
-      # No exponer a la LAN ni redirigir en el router.
-      - "127.0.0.1:4000:4000"
+      - "127.0.0.1:${OMNIROUTE_PORT:-20128}:20128"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness', timeout=5)"
+      test: ["CMD", "node", "healthcheck.mjs"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  # ----------------------------------------------------------
-  #  OpenClaw — orquestador
-  # ----------------------------------------------------------
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE}
     container_name: openclaw-gateway
     init: true
     restart: unless-stopped
     depends_on:
-      - litellm
+      omniroute:
+        condition: service_healthy
     environment:
       HOME: /home/node
       OPENCLAW_HOME: /home/node
@@ -103,7 +64,6 @@ services:
       TZ: ${TZ:-America/Lima}
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      # Única capacidad hacia el host: escribir solicitudes validadas.
       - ${AI_QUEUE_DIR:-/home/CAMBIAR/.local/state/ai-devops/queue}:/queue
       - ../scripts/solicitar-issue.sh:/usr/local/bin/solicitar-issue:ro
     ports:
@@ -115,8 +75,5 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-# Todo el tráfico externo es SALIENTE: polling de Telegram, APIs
-# de modelos y GitHub. Ningún puerto entrante desde internet.
-
 volumes:
-  postgres-data:
+  omniroute-data:

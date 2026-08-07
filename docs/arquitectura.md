@@ -11,7 +11,7 @@ flowchart TB
     subgraph EXT["🌐 Fuera de tu red"]
         TG["Servidores de Telegram"]
         GH["GitHub<br/>self-hosted-ai-devops"]
-        API["APIs de modelos<br/>OpenAI · DeepSeek · Bailian · Zhipu"]
+        API["Codex Plus + capas gratuitas<br/>seleccionadas por OmniRoute"]
     end
 
     subgraph CEL["📱 Celular"]
@@ -22,15 +22,15 @@ flowchart TB
         subgraph VM["VM: Ubuntu Server 24.04 LTS · 4 vCPU · 6 GB · 30 GB"]
             TS["Tailscale<br/>(SSH remoto)"]
             OC["OpenClaw<br/>orquestador · Docker"]
-            LL["LiteLLM<br/>gateway · Docker"]
-            PG[("Postgres<br/>gasto y claves")]
+            LL["OmniRoute<br/>gateway · Docker"]
+            DB[("SQLite cifrado<br/>cuotas y credenciales")]
             CX["Codex CLI<br/>6 perfiles"]
             WS["Workspace git<br/>+ worktrees por agente"]
             ST["stage · nginx<br/>build de la rama"]
             SH["shotter<br/>Chromium headless"]
             OC --> CX
             CX --> LL
-            LL --- PG
+            LL --- DB
             CX --> WS
             WS -->|build| ST
             ST --> SH
@@ -49,7 +49,11 @@ flowchart TB
 
 1. **Todas las flechas que cruzan el borde del host salen.** Nada entra. Telegram funciona por *polling* — el bot pregunta a los servidores de Telegram si hay mensajes — así que **no hay que abrir un solo puerto en el router**. Tailscale cubre el SSH por una red privada.
 
-2. **Codex no habla con los proveedores: habla con LiteLLM.** Es obligatorio, no una comodidad. Codex solo entiende la Responses API; DeepSeek, Qwen y GLM solo hablan Chat Completions. LiteLLM traduce, y de paso aplica los topes de gasto y registra cuánto consumió cada agente ([ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos)).
+2. **Codex no habla con los proveedores: habla con OmniRoute.** El gateway
+   traduce Responses API, usa la cuota de ChatGPT Plus mediante OAuth y enruta
+   trabajos de volumen a capas gratuitas. No almacena claves comerciales en
+   `.env`; las credenciales OAuth quedan cifradas en SQLite
+   ([ADR-022](decisiones.md#adr-022--omniroute-reemplaza-a-litellm)).
 
 3. **El `stage` es la única flecha que vuelve al celular sin pasar por Telegram**, y va por la red privada de Tailscale — no por internet. `shotter` es Chromium headless: es lo que permite que una VM sin escritorio produzca capturas de pantalla ([bucle-visual.md](bucle-visual.md)). Ambos servicios viven en un `profile` aparte del compose y **no arrancan** si el proyecto no tiene interfaz web.
 
@@ -190,8 +194,8 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | Componente | Dónde vive | Se reinicia con |
 |---|---|---|
 | OpenClaw | Contenedor Docker | `docker compose restart openclaw-gateway` |
-| LiteLLM | Contenedor Docker | `docker compose restart litellm` |
-| Postgres (gasto, claves virtuales) | Contenedor + volumen `postgres-data` | Sobrevive a todo salvo borrar el volumen |
+| OmniRoute | Contenedor Docker | `docker compose restart omniroute` |
+| SQLite cifrado de OmniRoute | Volumen `omniroute-data` | Sobrevive a recrear el contenedor |
 | Codex CLI | Binario en el host de la VM, no en contenedor | No aplica: se invoca por tarea |
 | `stage` (nginx) | Contenedor Docker, `profile: visual` | Solo arranca durante el bucle visual |
 | `shotter` (Chromium) | Contenedor efímero, `run --rm` | No queda corriendo: nace y muere por captura |
@@ -211,14 +215,14 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 |---|---|---|
 | Un agente entra en bucle de reintentos | Cortar a los 2 intentos y avisar | `MAX_RETRIES_PER_TASK` |
 | Un agente se cuelga sin reintentar ni terminar | Matarlo y avisar | `TASK_TIMEOUT_MINUTES` |
-| Un agente gasta de más | Cortarle el crédito sin tocar a los demás | Clave virtual con presupuesto propio en LiteLLM |
-| Se cae la API de un proveedor | Caer al modelo de respaldo, no reintentar en bucle | `fallbacks` en `litellm-config.yaml` |
+| Un agente consume de más | Cortar reintentos y concurrencia | Límites del runner y OmniRoute |
+| Se cae un proveedor | Elegir otra cuota gratuita | `auto/*:free` en OmniRoute |
 | Conflicto de merge entre ramas | El Revisor lo resuelve; si es ambiguo, escala al usuario | `scripts/integrar.sh` sale con código 2 |
 | Un agente commitea una clave | Bloquear el commit antes de que exista | Gitleaks en pre-commit + verificación en `integrar.sh` |
 | Un agente intenta escribir en `main` | Rechazarlo | Branch protection + hook `no-commit-to-branch` |
 | Un desconocido escribe al bot | Ignorarlo | 🔴 Allowlist de `chat_id` — ver [seguridad.md](seguridad.md) |
 | Se reinicia la VM | Todo vuelve solo | `restart: unless-stopped` + arranque automático en ESXi |
-| Se acaba el crédito de un proveedor | Avisar, no cambiar de modelo en silencio | Registro de gasto en LiteLLM |
+| Se agota una cuota | Usar otro proveedor gratuito o detenerse | Router y dashboard de OmniRoute |
 | El bucle visual empeora el diseño | Revertir al punto de retorno y mandar las dos fotos | `bucle-visual.sh` sale con código 1 |
 | El bucle visual no encuentra nada que arreglar | Terminar, no inventar cambios | El Diseñador responde `SIN-CAMBIOS` |
 | El modelo del Diseñador no ve imágenes | **No está cubierto en caliente** | Se detecta antes, en T057 — falla en silencio si se saltea |
