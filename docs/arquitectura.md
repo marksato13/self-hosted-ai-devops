@@ -19,7 +19,7 @@ flowchart TB
     end
 
     subgraph HOST["🖥️ Host físico — VMware ESXi 8.0 U3e"]
-        subgraph VM["VM: Ubuntu Server 24.04 LTS · 4 vCPU · 6 GB · 30 GB"]
+        subgraph VM["VM: Ubuntu Server 26.04 LTS · 4 vCPU · ~7 GB · 30 GB"]
             TS["Tailscale<br/>(SSH remoto)"]
             OC["OpenClaw<br/>orquestador · Docker"]
             LL["OmniRoute<br/>gateway · Docker"]
@@ -93,11 +93,11 @@ sequenceDiagram
     autonumber
     participant U as 📱 Usuario
     participant O as OpenClaw
-    participant P as Planificador (GPT-5.1)
-    participant B as Backend (DeepSeek)
-    participant T as Tests (Qwen)
-    participant D as Docs (GLM)
-    participant R as Revisor (GPT-5.1)
+    participant P as Planificador (auto/coding)
+    participant B as Backend (auto/coding)
+    participant T as Tests (auto/coding:free)
+    participant D as Docs (auto/coding:free)
+    participant R as Revisor (auto/coding)
     participant G as GitHub
 
     U->>O: "avanza el issue #12"
@@ -182,7 +182,7 @@ El costo no se reparte parejo. Planificar y revisar consume **pocos tokens pero 
 pie showData
     title Reparto aproximado de tokens
     "Ejecutores (modelos baratos)" : 85
-    "Planificador + Revisor (GPT-5.1)" : 15
+    "Planificador + Revisor (Codex/alta calidad)" : 15
 ```
 
 De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gratis, y el modelo caro —que además ya está pagado dentro de ChatGPT Plus— se reserva para las dos etapas donde equivocarse sale caro.
@@ -199,13 +199,26 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | Codex CLI | Binario en el host de la VM, no en contenedor | No aplica: se invoca por tarea |
 | `stage` (nginx) | Contenedor Docker, `profile: visual` | Solo arranca durante el bucle visual |
 | `shotter` (Chromium) | Contenedor efímero, `run --rm` | No queda corriendo: nace y muere por captura |
-| Workspace y worktrees | `~/workspace/` | Se reclona sin perder nada |
+| Repositorio de plataforma | `~/self-hosted-ai-devops/` | Compose, scripts y documentación; no recibe el código del producto |
+| Repositorio objetivo y worktrees | `${AI_TARGET_REPO_DIR}` y su directorio hermano `worktrees/` | Se configura al incorporar el proyecto real |
 | Capturas y línea base | `~/workspace/artefactos/` | Se regeneran; solo `base/` conviene conservar |
 | Secretos | `~/self-hosted-ai-devops/.env`, permisos `600` | Se restauran a mano |
-| Estado de OpenClaw | `${OPENCLAW_CONFIG_DIR}` | Configuración, sesiones y memoria persistente |
+| Estado de OpenClaw | `${OPENCLAW_CONFIG_DIR}` montado en `/home/node/.openclaw` | Configuración, sesiones y memoria persistente |
 | Estado del runner | `${AI_STATE_DIR}` | Cola, logs, planes y resultados por issue |
 
-**Punto sin resolver:** dónde queda exactamente la memoria persistente de tareas entre reinicios de OpenClaw. Verificar al llegar a la Fase 6 y documentar aquí.
+La memoria de OpenClaw persiste en `${OPENCLAW_CONFIG_DIR}` y la cola del runner
+en `${AI_QUEUE_DIR}`. Son directorios distintos a propósito: reiniciar o recrear
+el contenedor no elimina ninguno. Antes de iniciar la flota hay que cambiar
+`AI_TARGET_REPO_DIR` al clon del proyecto real; nunca debe apuntar a este
+repositorio de infraestructura salvo para una prueba controlada.
+
+Cuando el clon del proyecto real esté disponible, se registra sin copiar
+secretos ni mezclar historiales:
+
+```bash
+./scripts/configurar-proyecto-objetivo.sh /ruta/al/proyecto-real
+./scripts/verificar.sh 9
+```
 
 ---
 

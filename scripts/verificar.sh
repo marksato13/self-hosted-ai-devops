@@ -18,6 +18,8 @@ set -uo pipefail
 
 ENV_FILE="${HOME}/self-hosted-ai-devops/.env"
 [[ -f "$ENV_FILE" ]] && { set -a; source "$ENV_FILE"; set +a; }
+REPO_PLATAFORMA="${HOME}/self-hosted-ai-devops"
+REPO_OBJETIVO="${AI_TARGET_REPO_DIR:-}"
 
 OK=0; FALLO=0; OMITIDO=0
 
@@ -134,23 +136,23 @@ fase8() {
 
 fase9() {
   echo "── FASE 9 · GitHub y guardarraíles ──"
-  chk T032 "GITHUB_TOKEN en .env"          '[[ -n "${GITHUB_TOKEN:-}" ]]'
+  chk T032 "Credencial de GitHub disponible" '[[ -n "${GITHUB_TOKEN:-}" ]] || gh auth status'
   chk T033 "gh autenticado"                'gh auth status'
   chk T034 "main protegida"                'gh api "repos/${GITHUB_OWNER:-marksato13}/${GITHUB_REPO:-self-hosted-ai-devops}/branches/main/protection"'
   chk T035 "gitleaks instalado"            'gitleaks version'
   chk T035 "hook de pre-commit instalado"  'test -f "$HOME/self-hosted-ai-devops/.git/hooks/pre-commit"'
-  chk T036 "gitleaks detecta un secreto"   'printf "OPENAI_API_KEY=sk-proj-falsaparaprobar1234567890abcdef\n" > /tmp/_gl.txt; ! gitleaks detect --no-git --source /tmp/_gl.txt --no-banner; rc=$?; rm -f /tmp/_gl.txt; test $rc -eq 0'
-  chk T037 "Workspace preparado"           'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/nueva-tarea.sh"'
+  chk T036 "gitleaks detecta un secreto"   'd="$(mktemp -d)"; valor="sk-proj-$(openssl rand -hex 32)"; printf "OPENAI_API_KEY=%s\n" "$valor" > "$d/prueba.txt"; ! gitleaks detect --no-git --source "$d" --no-banner --redact'
+  chk T037 "Repositorio objetivo configurado" '[[ -n "$REPO_OBJETIVO" && -d "$REPO_OBJETIVO/.git" ]]'
   manual T038 "PR abierto desde el celular"
   manual T039 "Snapshot 03-stack-completo"
 }
 
 fase10() {
   echo "── FASE 10 · La flota ──"
-  chk T040 "scripts/nueva-tarea.sh ejecutable"      'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/nueva-tarea.sh"'
-  chk T042 "scripts/integrar.sh ejecutable"         'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/integrar.sh"'
-  chk T043 "scripts/limpiar-worktrees.sh ejecutable" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/limpiar-worktrees.sh"'
-  chk T043 "Sin worktrees huérfanos" 'test "$(git -C "$HOME/workspace/self-hosted-ai-devops" worktree list | wc -l)" -eq 1'
+  chk T040 "scripts/nueva-tarea.sh ejecutable"      'test -x "$REPO_PLATAFORMA/scripts/nueva-tarea.sh"'
+  chk T042 "scripts/integrar.sh ejecutable"         'test -x "$REPO_PLATAFORMA/scripts/integrar.sh"'
+  chk T043 "scripts/limpiar-worktrees.sh ejecutable" 'test -x "$REPO_PLATAFORMA/scripts/limpiar-worktrees.sh"'
+  chk T043 "Sin worktrees huérfanos" '[[ -n "$REPO_OBJETIVO" && -d "$REPO_OBJETIVO/.git" ]] && test "$(git -C "$REPO_OBJETIVO" worktree list | wc -l)" -eq 1'
   manual T044 "Ciclo completo desde Telegram"
   manual T045 "Checklist de seguridad repasado"
 }
@@ -172,7 +174,7 @@ fase11() {
   chk T057 "Perfil designer definido"      'test -f "$HOME/.codex/designer.config.toml"'
   chk T057 "Designer exige multimodal gratis" 'grep -q "auto/multimodal:free" "$HOME/.codex/designer.config.toml"'
   manual T057 "🔴 El modelo LEE la imagen (no solo responde)"
-  chk T058 "scripts del bucle ejecutables" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/bucle-visual.sh"'
+  chk T058 "scripts del bucle ejecutables" 'test -x "$REPO_PLATAFORMA/scripts/bucle-visual.sh"'
 }
 
 case "${1:-all}" in
