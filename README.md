@@ -109,6 +109,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
+| [docs/registro-proveedores-ia.md](docs/registro-proveedores-ia.md) | Registro paso a paso y almacenamiento seguro de claves de API |
 | [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
 | [docs/decisiones.md](docs/decisiones.md) | 19 ADRs: ESXi vs AWS, Server vs Desktop, LiteLLM, worktrees… |
 | [docs/seguridad.md](docs/seguridad.md) | Allowlist de Telegram, secretos, permisos, sandbox |
