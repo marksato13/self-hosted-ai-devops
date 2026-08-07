@@ -64,6 +64,8 @@ entre proveedores gratuitos. No se mantienen saldos ni claves comerciales.
 Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 El contrato operativo de Telegram, recuperación y aprobación está en
 **[docs/ciclo-autonomo.md](docs/ciclo-autonomo.md)**.
+El uso diario, los mensajes automáticos y las formas de aprobación están en el
+**[manual de Telegram](docs/telegram.md)**.
 
 ---
 
@@ -116,6 +118,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [docs/bucle-visual.md](docs/bucle-visual.md) | **Capturas sin escritorio, stage publicado e informe con imágenes** |
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
 | [docs/ciclo-autonomo.md](docs/ciclo-autonomo.md) | Comandos Telegram, estado, scheduler, recuperación y aprobación |
+| [docs/telegram.md](docs/telegram.md) | **Manual de Telegram:** mensajes automáticos, aprobación individual o por lote y ejemplos completos |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
 | [docs/omniroute.md](docs/omniroute.md) | Gateway gratuito, seguridad, autenticación y recuperación |

@@ -4,6 +4,11 @@ Este documento define el contrato operativo para avanzar el proyecto objetivo
 sin depender de una conversación interactiva. Telegram es el panel de control,
 GitHub es la fuente de verdad y el host ejecuta trabajo aislado.
 
+Para operar el sistema desde el celular, consultar el
+**[manual de Telegram](telegram.md)**: contiene comandos exactos, mensajes
+automáticos, conversaciones de ejemplo y las aprobaciones individual y
+por lote.
+
 > **Estado al 2026-08-07:** runner, scheduler y canal de control están
 > instalados. La allowlist fue confirmada y `AI_AUTONOMOUS_MODE=on` está activo.
 > La primera aprobación real de un PR desde Telegram continúa siendo el ensayo
