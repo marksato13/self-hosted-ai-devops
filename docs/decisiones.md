@@ -375,6 +375,30 @@ Esta decisión **reemplaza ADR-010 y ADR-019** para la instalación actual.
 
 ---
 
+## ADR-023 — Runner reconciliado y aprobación humana en dos fases
+
+**Contexto:** una cola despertada solamente por eventos puede perder trabajo
+después de un reinicio. Además, una orden breve como «aprueba» puede referirse
+a otro PR, llegar tarde o ejecutarse después de que cambió el commit.
+
+**Decisión:** el runner usa estado atómico por issue, historial de eventos,
+bloqueo exclusivo, reintentos limitados y dos disparadores systemd: un `.path`
+para baja latencia y un `.timer` para reconciliación. Procesa una tarea por
+invocación, recupera `.running` huérfanos y admite una pausa cooperativa.
+
+El merge conserva intervención humana y requiere dos fases: `aprobar PR N`
+produce un resumen y un código efímero; `confirmar CÓDIGO` solo es válido para
+el mismo `chat_id`, PR y SHA, con CI verde comprobada nuevamente. Cambiar el
+SHA invalida la aprobación.
+
+**Consecuencia:** reiniciar la VM o perder un evento no pierde una solicitud y
+un mensaje ambiguo no basta para fusionar. Hay más estado operativo que
+respaldar y observar en `${AI_STATE_DIR}`. La capa Telegram se considera
+pendiente hasta superar las pruebas de extremo a extremo de
+[ciclo-autonomo.md](ciclo-autonomo.md).
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |

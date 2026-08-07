@@ -2,6 +2,10 @@
 
 Cómo están organizadas las piezas y cómo se hablan entre sí.
 
+El contrato actualizado del ciclo desatendido está en
+[ciclo-autonomo.md](ciclo-autonomo.md). La diferencia esencial es que OpenClaw
+no invoca Codex: escribe una orden cerrada en la cola y el host la ejecuta.
+
 ---
 
 ## 1. Vista de componentes
@@ -206,6 +210,12 @@ De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gra
 | Estado de OpenClaw | `${OPENCLAW_CONFIG_DIR}` montado en `/home/node/.openclaw` | Configuración, sesiones y memoria persistente |
 | Estado del runner | `${AI_STATE_DIR}` | Cola, logs, planes y resultados por issue |
 
+El runner persiste `state.json` mediante reemplazo atómico y conserva
+`events.jsonl` por issue. Un path de systemd ofrece respuesta inmediata y un
+timer periódico reconcilia solicitudes después de reinicios o eventos
+perdidos. La pausa es cooperativa: permite terminar la tarea activa y bloquea
+el inicio de la siguiente.
+
 La memoria de OpenClaw persiste en `${OPENCLAW_CONFIG_DIR}` y la cola del runner
 en `${AI_QUEUE_DIR}`. Son directorios distintos a propósito: reiniciar o recrear
 el contenedor no elimina ninguno. Antes de iniciar la flota hay que cambiar
@@ -241,6 +251,8 @@ de un issue se convierta directamente en un comando del sistema.
 | Un agente intenta escribir en `main` | Rechazarlo | Branch protection + hook `no-commit-to-branch` |
 | Un desconocido escribe al bot | Ignorarlo | 🔴 Allowlist de `chat_id` — ver [seguridad.md](seguridad.md) |
 | Se reinicia la VM | Todo vuelve solo | `restart: unless-stopped` + arranque automático en ESXi |
+| El runner cae con una solicitud `.running` | Recuperarla y volver a encolarla | bloqueo global + reconciliador systemd |
+| Se pierde un evento de la cola | Reexaminarla en menos de un minuto | `ai-devops-queue.timer` |
 | Se agota una cuota | Usar otro proveedor gratuito o detenerse | Router y dashboard de OmniRoute |
 | El bucle visual empeora el diseño | Revertir al punto de retorno y mandar las dos fotos | `bucle-visual.sh` sale con código 1 |
 | El bucle visual no encuentra nada que arreglar | Terminar, no inventar cambios | El Diseñador responde `SIN-CAMBIOS` |

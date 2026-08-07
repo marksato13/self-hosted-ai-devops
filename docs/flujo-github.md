@@ -28,9 +28,14 @@ solicitar-issue 12
 El script rechaza texto, opciones, rutas, comodines y solicitudes duplicadas.
 La petición queda en `AI_QUEUE_DIR` con permisos privados.
 
+Los comandos cerrados, la frontera de confianza y el diseño de aprobación en
+dos fases se especifican en [ciclo-autonomo.md](ciclo-autonomo.md). No existe
+una ruta de Telegram a una shell arbitraria.
+
 ## Procesamiento
 
-`ai-devops-queue.path` despierta `ai-devops-queue.service`. El servicio obtiene
+`ai-devops-queue.path` despierta `ai-devops-queue.service` y
+`ai-devops-queue.timer` reconcilia periódicamente. El servicio obtiene
 un bloqueo exclusivo y ejecuta `scripts/ejecutar-issue.sh`:
 
 1. Lee el issue mediante `gh issue view` y exige que esté abierto.
@@ -44,6 +49,11 @@ un bloqueo exclusivo y ejecuta `scripts/ejecutar-issue.sh`:
 Los artefactos y logs quedan en `AI_STATE_DIR/issues/<numero>/`. Una solicitud
 termina en `queue/completadas/` o `queue/fallidas/`; nunca desaparece sin dejar
 estado.
+
+Los estados se escriben atómicamente y cada transición queda también en
+`events.jsonl`. El procesador acepta pausa/reanudación, ejecuta una sola tarea
+por invocación y aplica `MAX_RETRIES_PER_TASK` con espera entre intentos. Al
+reiniciarse, recupera solicitudes `.running` huérfanas.
 
 ## Ramas
 
@@ -68,14 +78,17 @@ El PR siempre comienza como borrador e informa por separado:
 - validación de Compose;
 - revisión visual pendiente, cuando corresponde.
 
-Solo una persona puede aprobar y fusionar el PR. Después del merge se ejecuta
+Solo una persona puede aprobar y fusionar el PR. La interfaz prevista exige
+`aprobar PR N` y una segunda orden con código efímero ligado al chat, PR y SHA;
+antes del merge se vuelven a comprobar la CI y el SHA. Después se ejecuta
 `scripts/limpiar-worktrees.sh <n>`; las ramas sin fusionar se conservan.
 
 ## Recuperación
 
 ```bash
-systemctl --user status ai-devops-queue.path
+systemctl --user status ai-devops-queue.path ai-devops-queue.timer
 journalctl --user -u ai-devops-queue.service
+./scripts/control-runner.sh estado
 find ~/.local/state/ai-devops/queue -maxdepth 2 -type f
 find ~/.local/state/ai-devops/issues/12 -maxdepth 1 -type f
 ```

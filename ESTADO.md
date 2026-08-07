@@ -25,7 +25,7 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 7 · OpenClaw | T024–T027 | 🟡 En curso · faltan las dos pruebas humanas del bot |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
 | 9 · GitHub | T032–T039 | 🟡 En curso · NinjaSec incorporado; falta snapshot y prueba móvil del PR |
-| 10 · La flota | T040–T045 | ⬜ Sin empezar |
+| 10 · La flota | T040–T045 | 🟡 En curso · agentes y PR verificados; falta ciclo Telegram |
 | 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
 Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
@@ -101,9 +101,9 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [ ] T039 👤 Snapshot `03-stack-completo`
 
 ### Fase 10 — La flota
-- [ ] T040 🤖 Worktrees creados a mano
-- [ ] T041 🤖 Tres agentes en paralelo, un commit cada uno
-- [ ] T042 🤖 `integrar.sh` abre un PR en borrador
+- [x] T040 🤖 Worktrees creados a mano — 2026-08-07
+- [x] T041 🤖 Tres agentes en paralelo, un commit cada uno — 2026-08-07
+- [x] T042 🤖 `integrar.sh` abre un PR en borrador — 2026-08-07
 - [ ] T043 ⚙️ PR aprobado y worktrees limpiados
 - [ ] T044 🤖 Ciclo completo conectado a OpenClaw
 - [ ] T045 👤 Checklist de seguridad repasado
