@@ -18,6 +18,13 @@ test -d "$queue" || {
 umask 077
 tmp="$queue/.issue-${issue}.$$"
 pending="$queue/issue-${issue}.pending"
+for existente in "$queue/issue-${issue}.pending" "$queue/issue-${issue}.running" \
+  "$queue/completadas/issue-${issue}.done" "$queue/fallidas/issue-${issue}.failed"; do
+  if [ -e "$existente" ]; then
+    echo "El issue #${issue} ya fue solicitado." >&2
+    exit 75
+  fi
+done
 printf '%s\n' "$issue" > "$tmp"
 if ln "$tmp" "$pending" 2>/dev/null; then
   rm -f "$tmp"
