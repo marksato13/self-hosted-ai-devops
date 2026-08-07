@@ -336,6 +336,23 @@ secretos del runner. Cada solicitud deja estado auditable y puede recuperarse.
 
 ---
 
+## ADR-021 — La VM existente conserva Ubuntu 26.04
+
+**Contexto:** el diseño prefería Ubuntu Server 24.04, pero la VM disponible ya
+ejecuta Ubuntu 26.04 sobre VMware. En ella se verificaron Node 22, Codex CLI,
+Docker 29 con Compose y Tailscale. Reinstalar no aporta aislamiento adicional y
+sí destruiría una base funcional.
+
+**Decisión:** conservar Ubuntu 26.04 para esta instalación y aceptar ambas LTS
+en `scripts/verificar.sh`. La documentación nueva no debe asumir que todas las
+instalaciones usan la misma versión.
+
+**Consecuencia:** cualquier instrucción dependiente de paquetes debe probarse
+en esta VM antes de marcarla como completada. La compatibilidad comprobada no
+convierte 26.04 en requisito para otras instalaciones.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
