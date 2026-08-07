@@ -206,6 +206,13 @@ otro procesador. Si está pausado, `reanudar` despierta el servicio.
 
 ### Un issue reintenta continuamente
 
+Si la VM no permite user namespaces, Codex no puede iniciar `bubblewrap` con
+`read-only`/`workspace-write`. El runner detecta esa condición y usa
+`danger-full-access` únicamente dentro del repositorio objetivo; la alternativa
+es habilitar `kernel.unprivileged_userns_clone`. La planificación usa por
+defecto `cx/gpt-5.6-sol` (la conexión OAuth de Codex) para no depender del cupo
+compartido de OpenCode Free. Se puede cambiar con `CODEX_PLANNER_MODEL`.
+
 `MAX_RETRIES_PER_TASK` cuenta reintentos además del intento inicial. El estado
 `retrying` incluye la espera y el código de salida. Cuando se agota el límite,
 la solicitud queda en `queue/fallidas/` y no vuelve a ejecutarse sola.
