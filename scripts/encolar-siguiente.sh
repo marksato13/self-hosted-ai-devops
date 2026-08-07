@@ -33,6 +33,7 @@ mapfile -t candidatos < <(gh issue list --repo "$OWNER/$REPO" --state open \
   --jq '[.[] | select([.labels[].name] | index("bloqueada") | not)] | sort_by(.number) | .[].number')
 for issue in "${candidatos[@]}"; do
   if AI_QUEUE_DIR="$QUEUE" "$REPO_RAIZ/scripts/solicitar-issue.sh" "$issue" >/dev/null 2>&1; then
+    ai_estado_guardar "$issue" selected 0 "seleccionado por el ciclo autónomo"
     echo "Issue #$issue seleccionado automáticamente."
     exit 0
   fi

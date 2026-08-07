@@ -19,7 +19,7 @@ printf '%s\n' \
 chmod 600 "$APP/.env"
 
 reportar_desde_app() {
-  (cd "$APP" && "$APP/scripts/reportar.sh" "$@")
+  (cd "$APP" && ENV_FILE="$APP/.env" "$APP/scripts/reportar.sh" "$@")
 }
 
 echo "Caso: Telegram 401 se informa como fallo sin filtrar el token"
