@@ -68,9 +68,24 @@ PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 } > "$PROMPT_PLAN"
 
 PLANNER_MODEL="${CODEX_PLANNER_MODEL:-cx/gpt-5.6-sol}"
-timeout "$TIMEOUT" codex exec -p planner -m "$PLANNER_MODEL" -s "$(codex_sandbox read-only)" -C "$TARGET_REPO" \
-  --output-schema "$REPO_RAIZ/config/plan.schema.json" \
-  -o "$ESTADO/plan.json" - < "$PROMPT_PLAN"
+PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-cx/gpt-5.6-terra}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.5}")
+planner_ok=0
+for modelo in "${PLANNER_MODELS[@]}"; do
+  [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
+  planner_log="$ESTADO/planner-${modelo//[^a-zA-Z0-9]/_}.log"
+  if timeout "$TIMEOUT" codex exec -p planner -m "$modelo" -s "$(codex_sandbox read-only)" -C "$TARGET_REPO" \
+      --output-schema "$REPO_RAIZ/config/plan.schema.json" \
+      -o "$ESTADO/plan.json" - < "$PROMPT_PLAN" >"$planner_log" 2>&1; then
+    planner_ok=1
+    break
+  fi
+  if ! grep -qE '429|rate.limit|Too Many Requests' "$planner_log"; then
+    cat "$planner_log" >&2
+    break
+  fi
+  echo "Planificador saturado con $modelo; probando el siguiente modelo Codex." >&2
+done
+(( planner_ok == 1 )) || { echo "El planificador no pudo responder con los modelos configurados." >&2; exit 1; }
 jq -e . "$ESTADO/plan.json" >/dev/null
 jq -e '
   (.resumen | type == "string" and length > 0) and
