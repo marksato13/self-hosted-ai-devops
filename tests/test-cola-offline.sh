@@ -29,7 +29,7 @@ afirmar_igual "$RC" 75
 echo "Caso: el bloqueo impide dos procesadores"
 exec 8>"$AI_QUEUE_DIR/.procesador.lock"
 flock -n 8
-ejecutar_rc "$FIXTURE/salida" "$PROCESAR"
+ejecutar_rc "$FIXTURE/salida" bash -c 'exec 8>&-; exec "$1"' _ "$PROCESAR"
 afirmar_igual "$RC" 75
 afirmar_contiene "$FIXTURE/salida" "otro procesador"
 

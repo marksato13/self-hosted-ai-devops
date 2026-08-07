@@ -3,9 +3,12 @@
 set -euo pipefail
 
 REPO_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$REPO_RAIZ/.env}"
 set -a
-[[ -f "$REPO_RAIZ/.env" ]] && source "$REPO_RAIZ/.env"
+[[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
 set +a
+# shellcheck source=scripts/lib/estado.sh
+source "$REPO_RAIZ/scripts/lib/estado.sh"
 
 command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
@@ -15,7 +18,6 @@ COLA="${AI_QUEUE_DIR:-$HOME/.local/state/ai-devops/queue}"
 CONTROL="$COLA/control"
 ESTADO="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}"
 APROBACIONES="$ESTADO/aprobaciones"
-PAUSA="$ESTADO/PAUSADA"
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
 TTL="${APPROVAL_TTL_MINUTES:-10}"
@@ -53,7 +55,7 @@ estado_flota() {
   pendientes="$(find "$COLA" -maxdepth 1 -name 'issue-*.pending' -printf . 2>/dev/null | wc -c)"
   ejecutando="$(find "$COLA" -maxdepth 1 -name 'issue-*.running' -printf . 2>/dev/null | wc -c)"
   fallidas="$(find "$COLA/fallidas" -maxdepth 1 -name 'issue-*.failed' -printf . 2>/dev/null | wc -c)"
-  [[ -e "$PAUSA" ]] && pausa="sí" || pausa="no"
+  if ai_pausado; then pausa="sí"; else pausa="no"; fi
   prs="$(gh pr list --repo "$OWNER/$REPO" --state open --limit 10 --json number,url,isDraft \
     --jq 'map("#\(.number)" + (if .isDraft then " (borrador)" else "" end)) | join(", ")' 2>/dev/null || echo "no disponible")"
   printf 'Flota: pausada=%s; pendientes=%s; ejecutando=%s; fallidas=%s; PR abiertos=%s.' \
@@ -61,7 +63,7 @@ estado_flota() {
 }
 
 procesar() {
-  local sobre="$1" accion valor actor pr tmp nonce exp guardado actual sha
+  local sobre="$1" accion valor actor pr tmp nonce exp guardado actual sha head issue
   jq -e '.version == 1 and (.id|type=="string") and (.accion|type=="string") and
     (.valor|type=="string") and (.actor|test("^[0-9]+$")) and (.creado|type=="string")' \
     "$sobre" >/dev/null || return 65
@@ -86,7 +88,7 @@ procesar() {
       fi
       ;;
     issue)
-      [[ ! -e "$PAUSA" ]] || { notificar "$actor" "La flota está pausada; usa reanudar antes de solicitar el issue #$valor."; return 0; }
+      ! ai_pausado || { notificar "$actor" "La flota está pausada; usa reanudar antes de solicitar el issue #$valor."; return 0; }
       if AI_QUEUE_DIR="$COLA" "$REPO_RAIZ/scripts/solicitar-issue.sh" "$valor"; then
         notificar "$actor" "Issue #$valor encolado."
       else
@@ -94,7 +96,7 @@ procesar() {
       fi
       ;;
     siguiente)
-      [[ ! -e "$PAUSA" ]] || { notificar "$actor" 'La flota está pausada; usa reanudar primero.'; return 0; }
+      ! ai_pausado || { notificar "$actor" 'La flota está pausada; usa reanudar primero.'; return 0; }
       valor="$(gh issue list --repo "$OWNER/$REPO" --state open --label 'agente:lista' --limit 100 \
         --json number,labels --jq '[.[] | select([.labels[].name] | index("bloqueada") | not)] | sort_by(.number) | .[0].number // empty')"
       if [[ -z "$valor" ]]; then
@@ -106,11 +108,11 @@ procesar() {
       fi
       ;;
     detener)
-      umask 077; : >"$PAUSA"
-      notificar "$actor" 'Flota pausada: no se admitirán tareas nuevas. La cancelación de una tarea activa la gestiona el runner.'
+      ai_pausar
+      notificar "$actor" 'Flota pausada: no se admitirán tareas nuevas. La tarea activa, si existe, terminará de forma controlada.'
       ;;
     reanudar)
-      rm -f -- "$PAUSA"
+      ai_reanudar
       notificar "$actor" 'Flota reanudada.'
       ;;
     aprobar)
@@ -142,9 +144,15 @@ procesar() {
         notificar "$actor" "PR #$pr cambió o dejó de cumplir las validaciones; no se fusionó."
         return 0
       fi
+      head="$(jq -r .headRefName "$tmp")"
+      issue="${head#integra/issue-}"
       if [[ "$(jq -r .isDraft "$tmp")" == true ]]; then gh pr ready "$pr" --repo "$OWNER/$REPO" >/dev/null; fi
       if gh pr merge "$pr" --repo "$OWNER/$REPO" --merge --delete-branch \
         --match-head-commit "$sha"; then
+        ai_estado_guardar "$issue" completed 0 "PR #$pr fusionado con confirmación humana"
+        if [[ -d "${AI_TARGET_REPO_DIR:-}" ]]; then
+          (cd "$AI_TARGET_REPO_DIR" && "$REPO_RAIZ/scripts/limpiar-worktrees.sh" "$issue") >/dev/null 2>&1 || true
+        fi
         notificar "$actor" "PR #$pr fusionado después de la confirmación humana explícita."
       else
         notificar "$actor" "GitHub rechazó el merge del PR #$pr; no se forzó ni se usó bypass."

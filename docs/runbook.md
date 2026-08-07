@@ -46,6 +46,15 @@ jq . ~/.local/state/ai-devops/issues/12/state.json
 tail ~/.local/state/ai-devops/issues/12/events.jsonl
 ```
 
+La selección continua se habilita en `.env` únicamente después de T027:
+
+```env
+AI_AUTONOMOUS_MODE=on
+```
+
+El timer entonces toma solo issues etiquetados `agente:lista`, uno por vez, y
+espera que el PR de integración se cierre antes de elegir el siguiente.
+
 Bucle visual (solo si está en uso):
 
 ```bash

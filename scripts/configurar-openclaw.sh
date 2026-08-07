@@ -51,6 +51,8 @@ patch="$(jq -nc --argjson ids "$ids_json" '{
   agents:{defaults:{model:{primary:"omniroute/oc/big-pickle"}}},
   tools:{
     allow:["exec"],
+    # OpenClaw 2026.7.1-2 todavía valida `timeoutSec`; versiones posteriores
+    # lo renombran a `timeoutSeconds`.
     exec:{host:"gateway",mode:"allowlist",strictInlineEval:true,timeoutSec:15}
   },
   channels: {telegram:{

@@ -6,6 +6,7 @@ crear_fixture() {
   export AI_QUEUE_DIR="$FIXTURE/queue"
   export AI_STATE_DIR="$FIXTURE/state"
   export HOME="$FIXTURE/home"
+  export ENV_FILE="$FIXTURE/no-env"
   mkdir -p "$FAKE_LOG_DIR" "$AI_QUEUE_DIR" "$AI_STATE_DIR" "$HOME"
   export PATH="$TEST_ROOT/helpers/fake-bin:$PATH"
 }

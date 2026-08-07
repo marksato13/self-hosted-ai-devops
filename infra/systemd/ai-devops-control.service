@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=%h/self-hosted-ai-devops
+Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=%h/self-hosted-ai-devops/scripts/procesar-control.sh
 Nice=5
 NoNewPrivileges=true

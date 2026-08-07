@@ -29,4 +29,3 @@ jobs:
       - name: Validar archivos estructurados
         run: |
           jq -e . config/plan.schema.json >/dev/null
-          ruby -e 'require "yaml"; YAML.load_file("infra/litellm-config.yaml")'

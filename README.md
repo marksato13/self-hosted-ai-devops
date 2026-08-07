@@ -183,6 +183,10 @@ Y el ciclo de una tarea, ya con todo montado:
 ./scripts/limpiar-worktrees.sh 12  # limpia al aprobar
 ```
 
+Tras verificar la allowlist desde otra cuenta, `AI_AUTONOMOUS_MODE=on` permite
+que el timer continúe con issues etiquetados `agente:lista`, uno por vez. Los
+merges siguen necesitando la confirmación de dos fases desde Telegram.
+
 ---
 
 ## Fases y criterios de aceptación

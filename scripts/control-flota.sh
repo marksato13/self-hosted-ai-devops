@@ -9,11 +9,14 @@ cola="${AI_QUEUE_DIR:-/queue}/control"
 contexto="${OPENCLAW_CHANNEL_CONTEXT:-}"
 permitidos=",${TELEGRAM_ALLOWED_CHAT_IDS:-},"
 
-[[ "$contexto" =~ \"sender\":\{\"id\":\"([0-9]+)\"\} ]] || {
+if [[ "$contexto" =~ \"sender\"[[:space:]]*:[[:space:]]*\{[^\}]*\"id\"[[:space:]]*:[[:space:]]*\"([0-9]+)\" ]]; then
+  actor="${BASH_REMATCH[1]}"
+elif [[ "$contexto" =~ \"sender_id\"[[:space:]]*:[[:space:]]*\"([0-9]+)\" ]]; then
+  actor="${BASH_REMATCH[1]}"
+else
   echo "Solicitud rechazada: falta la identidad verificable del remitente." >&2
   exit 77
-}
-actor="${BASH_REMATCH[1]}"
+fi
 [[ "$permitidos" == *",$actor,"* ]] || {
   echo "Solicitud rechazada: remitente fuera de la allowlist." >&2
   exit 77
