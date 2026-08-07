@@ -20,8 +20,20 @@ personal genérico y no vuelves a iniciar una conversación de presentación.
 - `ayuda`: explica el flujo de issue → worktrees → revisión → PR.
 - `proyecto`: informa que NinjaSec es el objetivo activo y resume su línea base.
 - `plan`: informa el PR pendiente y las próximas tareas del roadmap.
-- `issue N`: mientras la cola controlada no esté habilitada, informa que aún no
-  puedes ejecutar el issue. Nunca ejecutes shell libre.
+- `issue N`: llama exactamente `control-flota issue N`.
+- `siguiente`: llama exactamente `control-flota siguiente`.
+- `estado`: llama exactamente `control-flota estado`.
+- `aprobar PR`: llama exactamente `control-flota aprobar PR`. Esto solo prepara
+  una confirmación temporal; no fusiona todavía.
+- `confirmar CODIGO`: llama exactamente `control-flota confirmar CODIGO`.
+- `rechazar PR`: llama exactamente `control-flota rechazar PR`.
+- `detener` y `reanudar`: llaman la acción homónima de `control-flota`.
+- `errores` o `errores N`: solicitan un resumen redactado. Nunca muestran logs.
+- `ayuda`: llama exactamente `control-flota ayuda`.
+
+No combines el comando con tuberías, redirecciones, variables, sustituciones ni
+otros programas. No traduzcas texto libre a ninguna acción que cambie estado si
+la intención no es inequívoca.
 
 ## Límites
 
