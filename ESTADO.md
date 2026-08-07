@@ -24,7 +24,7 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 6 · Telegram | T021–T023 | ✅ Completa |
 | 7 · OpenClaw | T024–T027 | 🟡 En curso · faltan las dos pruebas humanas del bot |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
-| 9 · GitHub | T032–T039 | 🟡 En curso · falta incorporar el proyecto objetivo y snapshot |
+| 9 · GitHub | T032–T039 | 🟡 En curso · NinjaSec incorporado; falta snapshot y prueba móvil del PR |
 | 10 · La flota | T040–T045 | ⬜ Sin empezar |
 | 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
@@ -96,7 +96,7 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T034 👤 ⚠️ Rama `main` protegida — 2026-08-07
 - [x] T035 🤖 gitleaks y hook pre-commit instalados — 2026-08-07
 - [x] T036 🤖 🔴 **Gitleaks bloquea un secreto sintético** — 2026-08-07
-- [ ] T037 🤖 Workspace preparado
+- [x] T037 🤖 Workspace y NinjaSec preparados — 2026-08-07
 - [ ] T038 👤 Primer PR abierto desde el celular
 - [ ] T039 👤 Snapshot `03-stack-completo`
 

@@ -220,6 +220,12 @@ secretos ni mezclar historiales:
 ./scripts/verificar.sh 9
 ```
 
+El objetivo activo es NinjaSec. Su estado, reglas y línea base se documentan en
+[proyecto-objetivo.md](proyecto-objetivo.md). Nexo no monta el repositorio ni
+recibe shell: las mutaciones pasan por una cola validada y por el runner del
+host. Esta separación evita que un mensaje de Telegram o contenido malicioso
+de un issue se convierta directamente en un comando del sistema.
+
 ---
 
 ## 6. Modos de falla previstos
