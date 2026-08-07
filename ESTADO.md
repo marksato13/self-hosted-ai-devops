@@ -22,7 +22,7 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
 | 5 · OmniRoute | T014–T020 | ✅ Completa |
 | 6 · Telegram | T021–T023 | ✅ Completa |
-| 7 · OpenClaw | T024–T027 | 🟡 En curso · faltan las dos pruebas humanas del bot |
+| 7 · OpenClaw | T024–T027 | ✅ Completa |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
 | 9 · GitHub | T032–T039 | 🟡 En curso · NinjaSec incorporado; falta snapshot y prueba móvil del PR |
 | 10 · La flota | T040–T045 | 🟡 En curso · agentes y PR verificados; falta ciclo Telegram |
@@ -81,8 +81,8 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 ### Fase 7 — OpenClaw
 - [x] T024 👤 Imagen oficial confirmada en la documentación — 2026-08-07
 - [x] T025 🤖 OmniRoute y OpenClaw arriba y saludables — 2026-08-07
-- [ ] T026 👤 El bot responde a tu cuenta
-- [ ] T027 👤 🔴 **El bot ignora a otra cuenta**
+- [x] T026 👤 El bot responde a tu cuenta — 2026-08-07
+- [x] T027 👤 🔴 **El bot ignora a otra cuenta** — 2026-08-07, confirmado por el operador
 
 ### Fase 8 — Codex CLI
 - [x] T028 🤖 Codex CLI instalado — 2026-08-07
@@ -155,3 +155,4 @@ Cuando el plan deja algo abierto y se resuelve sobre la marcha, anotarlo acá y 
 | Fecha | Decisión | Motivo |
 |---|---|---|
 | 2026-08-06 | Cola local entre OpenClaw y el runner | Mantener GitHub, Codex, Docker y las claves fuera del contenedor de mensajería |
+| 2026-08-07 | Modo autónomo continuo habilitado | Allowlist confirmada; solo toma issues con `agente:lista`, uno por vez y sin auto-merge |

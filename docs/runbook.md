@@ -54,6 +54,7 @@ AI_AUTONOMOUS_MODE=on
 
 El timer entonces toma solo issues etiquetados `agente:lista`, uno por vez, y
 espera que el PR de integración se cierre antes de elegir el siguiente.
+En esta VM quedó habilitado el 2026-08-07 tras confirmar T027.
 
 Bucle visual (solo si está en uso):
 
