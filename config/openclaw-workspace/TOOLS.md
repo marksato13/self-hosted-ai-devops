@@ -1,7 +1,12 @@
 # Herramientas
 
-Política actual: deny-by-default. El chat no dispone de shell, navegador ni
-escritura directa sobre repositorios.
+Política deny-by-default. El chat no dispone de navegador ni escritura directa
+sobre repositorios. La herramienta de ejecución está detrás de una allowlist
+que solo admite `/usr/local/bin/control-flota`; cualquier otro binario falla.
 
-La única mutación prevista será enviar un número de issue validado a la cola
-local. Se habilitará después de registrar y auditar el proyecto objetivo.
+`control-flota` admite únicamente acciones cerradas y valida de nuevo el
+`chat_id` recibido en `OPENCLAW_CHANNEL_CONTEXT`. Escribe sobres JSON atómicos
+en la cola local. GitHub, Codex, Docker y los secretos permanecen en el host.
+
+El merge necesita dos mensajes humanos: `aprobar PR` genera un código de un
+solo uso y `confirmar CODIGO` autoriza el SHA exacto durante unos minutos.

@@ -1,0 +1,9 @@
+[Unit]
+Description=Vigila órdenes cerradas de Telegram para la flota
+
+[Path]
+PathChanged=%h/.local/state/ai-devops/queue/control
+Unit=ai-devops-control.service
+
+[Install]
+WantedBy=default.target
