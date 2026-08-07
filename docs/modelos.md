@@ -2,7 +2,10 @@
 
 Qué modelo usa cada agente, de dónde sale la clave y cuánto cuesta.
 
-> ⚠️ **Antes de configurar nada:** los nombres de modelo, endpoints y precios de este documento vienen de la investigación de diseño y **no están verificados contra las consolas oficiales**. Los proveedores renombran modelos y cambian precios seguido. Confirmá cada fila en la documentación del proveedor antes de pegar una clave, y actualizá esta tabla con lo que encuentres.
+> **Verificación 2026-08-07:** los modelos de OpenAI, DeepSeek, Qwen y Kimi de
+> esta tabla fueron confirmados contra los catálogos accesibles con las cuentas
+> instaladas. Los proveedores renombran modelos y cambian precios seguido; GLM
+> continúa pendiente hasta disponer de una clave de Zhipu.
 >
 > Atajo útil: el catálogo [FREE_TIERS.md de OmniRoute](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/FREE_TIERS.md) se re-audita cada dos semanas e incluye, por proveedor, la cuota gratuita real **y qué dice su ToS sobre usarlo detrás de un proxy** — que es la letra chica que importa acá. De ahí salen dos datos que esta tabla no tenía: `chutes` cerró su capa gratuita en marzo de 2026 y `aimlapi` la dejó en pausa. No adoptamos OmniRoute como gateway ([ADR-019](decisiones.md#adr-019--omniroute-evaluado-litellm-se-queda)), pero su catálogo sirve igual.
 
@@ -28,14 +31,15 @@ Consecuencia práctica: los nombres de perfil de Codex son **alias** definidos e
 
 | Agente | Alias | Modelo | Proveedor | Variable de entorno |
 |---|---|---|---|---|
-| Planificador | `planner` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
-| Backend | `backend` | DeepSeek V4 | DeepSeek | `DEEPSEEK_API_KEY` |
-| Tests | `tester` | Qwen3.5-coder | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
+| Planificador | `planner` | GPT-5.6 Terra | OpenAI | `OPENAI_API_KEY` |
+| Backend | `backend` | DeepSeek V4 Flash | DeepSeek | `DEEPSEEK_API_KEY` |
+| Respaldo Backend | `kimi` | Kimi K2.7 Code | Moonshot AI | `MOONSHOT_API_KEY` |
+| Tests | `tester` | Qwen3 Coder Next | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
 | Docs | `docs` | GLM-4.5-Air | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
-| Revisor | `reviewer` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
+| Revisor | `reviewer` | GPT-5.6 Sol | OpenAI | `OPENAI_API_KEY` |
 | Diseñador | `designer` | GLM-4.5V **(visión)** | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
 
-Las cuatro claves las consume **LiteLLM**. Codex solo necesita `LITELLM_MASTER_KEY`.
+Las cinco claves las consume **LiteLLM**. Codex solo necesita `LITELLM_MASTER_KEY`.
 
 El Diseñador reutiliza la clave de Zhipu: son dos modelos del mismo proveedor, uno de texto y uno de visión.
 
@@ -65,6 +69,13 @@ El Diseñador reutiliza la clave de Zhipu: son dos modelos del mismo proveedor, 
 
 - Consola: https://open.bigmodel.cn (o https://z.ai)
 - La variante *Air* es la gratuita o casi gratuita; es suficiente para redactar documentación.
+
+### Kimi / Moonshot — respaldo de Backend
+
+- Consola: https://platform.kimi.com/console/api-keys
+- Usa una API compatible con OpenAI mediante `https://api.moonshot.cn/v1`.
+- El alias `kimi` es el primer fallback de `backend`; si también falla, LiteLLM
+  intenta `planner`.
 
 ---
 
