@@ -193,6 +193,10 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 - [ ] `MAX_RETRIES_PER_TASK` configurado
 - [ ] Snapshot #3 tomado
 - [ ] Sandbox de Codex acotado al workspace
+- [ ] OpenClaw solo puede invocar comandos cerrados; nunca una shell libre
+- [ ] Pausa, recuperación y límite de reintentos probados tras reiniciar
+- [ ] Aprobación Telegram exige segundo factor efímero ligado a PR y SHA
+- [ ] Una confirmación vencida o enviada desde otro `chat_id` no fusiona
 - [ ] *(si hay bucle visual)* El stage con `tailscale serve`, no `funnel`
 
 ---
@@ -208,3 +212,11 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 | `auth.json` de Codex filtrado | `codex logout` en todos lados → cerrar sesión en chatgpt.com → volver a entrar |
 | Un agente escribió algo raro en el repo | `main` está protegida: cerrá el PR sin mergear |
 | La VM se comporta raro | Restaurar el snapshot #3 |
+
+## Aprobaciones desde Telegram
+
+`aprobar PR N` no debe fusionar. Solo genera un resumen y un código efímero. La
+segunda orden queda ligada al `chat_id` autorizado, PR y SHA observado; el
+runner comprueba otra vez la CI y el SHA antes del merge. Los códigos son de un
+solo uso, vencen y nunca se escriben en GitHub ni en logs públicos. Ver
+[ciclo-autonomo.md](ciclo-autonomo.md#aprobación-en-dos-fases).

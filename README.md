@@ -4,7 +4,9 @@ Flota personal de agentes de IA, **autohospedada**, comandada desde el celular p
 
 Combina un modelo caro para **planificar y revisar** con modelos chinos baratos o gratuitos para **ejecutar**, de modo que el volumen de tokens se lo lleven los modelos económicos.
 
-> **Estado:** runner y CI implementados · despliegue en VM pendiente · última actualización 2026-08-06
+> **Estado:** infraestructura y runner persistente implementados · control y
+> aprobación por Telegram pendientes de verificación integral · última
+> actualización 2026-08-07
 
 ---
 
@@ -60,6 +62,8 @@ API de Codex, aprovecha la suscripción ChatGPT Plus existente y aplica fallback
 entre proveedores gratuitos. No se mantienen saldos ni claves comerciales.
 
 Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
+El contrato operativo de Telegram, recuperación y aprobación está en
+**[docs/ciclo-autonomo.md](docs/ciclo-autonomo.md)**.
 
 ---
 
@@ -111,6 +115,7 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 | [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
 | [docs/bucle-visual.md](docs/bucle-visual.md) | **Capturas sin escritorio, stage publicado e informe con imágenes** |
 | [docs/arquitectura.md](docs/arquitectura.md) | Diagramas de componentes, flujo, worktrees y ramas |
+| [docs/ciclo-autonomo.md](docs/ciclo-autonomo.md) | Comandos Telegram, estado, scheduler, recuperación y aprobación |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
 | [docs/omniroute.md](docs/omniroute.md) | Gateway gratuito, seguridad, autenticación y recuperación |
@@ -172,7 +177,8 @@ Y el ciclo de una tarea, ya con todo montado:
 
 ```bash
 ./scripts/solicitar-issue.sh 12     # OpenClaw solo escribe en una cola
-./scripts/procesar-cola.sh          # el host ejecuta el ciclo aislado
+./scripts/instalar-runner.sh        # activa path + reconciliación periódica
+./scripts/control-runner.sh estado  # estado local: activo o pausado
 ./scripts/bucle-visual.sh 12       # (si es web) mira, corrige y manda la foto
 ./scripts/limpiar-worktrees.sh 12  # limpia al aprobar
 ```
