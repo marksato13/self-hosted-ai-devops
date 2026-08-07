@@ -21,8 +21,8 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 3 · Tailscale | T010–T011 | 🟡 En curso · falta prueba móvil |
 | 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
 | 5 · OmniRoute | T014–T020 | ✅ Completa |
-| 6 · Telegram | T021–T023 | ⬜ Sin empezar |
-| 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
+| 6 · Telegram | T021–T023 | ✅ Completa |
+| 7 · OpenClaw | T024–T027 | 🟡 En curso · faltan las dos pruebas humanas del bot |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
 | 9 · GitHub | T032–T039 | 🟡 En curso · falta incorporar el proyecto objetivo y snapshot |
 | 10 · La flota | T040–T045 | ⬜ Sin empezar |
@@ -74,13 +74,13 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T020 👤 Codex OAuth y OpenCode Free confirmados en dashboard — 2026-08-07
 
 ### Fase 6 — Telegram
-- [ ] T021 👤 Bot creado en BotFather
-- [ ] T022 👤 `chat_id` obtenido
-- [ ] T023 ⚙️ 🔴 Allowlist configurada
+- [x] T021 👤 Bot creado en BotFather — 2026-08-07
+- [x] T022 👤 `chat_id` obtenido — 2026-08-07
+- [x] T023 ⚙️ 🔴 Allowlist configurada — 2026-08-07
 
 ### Fase 7 — OpenClaw
-- [ ] T024 👤 Imagen oficial confirmada en la documentación
-- [ ] T025 🤖 Los tres contenedores arriba
+- [x] T024 👤 Imagen oficial confirmada en la documentación — 2026-08-07
+- [x] T025 🤖 OmniRoute y OpenClaw arriba y saludables — 2026-08-07
 - [ ] T026 👤 El bot responde a tu cuenta
 - [ ] T027 👤 🔴 **El bot ignora a otra cuenta**
 
