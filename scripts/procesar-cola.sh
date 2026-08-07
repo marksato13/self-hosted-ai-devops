@@ -132,7 +132,9 @@ if (( rc == 75 )); then
   printf '%s\n' "$(( $(date +%s) + espera ))" > "$retry_tmp"
   mv -f -- "$retry_tmp" "$QUEUE/.issue-${issue}.retry-at"
   mv -- "$running" "$QUEUE/issue-${issue}.pending"
-  ai_estado_guardar "$issue" retrying "$previo" "proveedor temporalmente saturado; reintento en ${espera}s"
+  # Se muestra el intento que acaba de fallar (1, 2, ...), aunque el contador
+  # durable vuelva a cero para que la saturación no consuma reintentos del issue.
+  ai_estado_guardar "$issue" retrying "$intentos" "proveedor temporalmente saturado; reintento en ${espera}s"
   echo "Issue #$issue en espera por límite temporal del proveedor (${espera}s)." >&2
   exit 0
 fi
