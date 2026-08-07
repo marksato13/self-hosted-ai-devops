@@ -8,12 +8,12 @@ Los seis roles de la flota. Todos son **el mismo binario** —Codex CLI— invoc
 
 | # | Agente | Perfil | Modelo | Worktree | Rama que produce |
 |---|---|---|---|---|---|
-| 1 | **Planificador** | `planner` | GPT-5.1 | repo principal (solo lee) | ninguna |
-| 2 | **Backend** | `backend` | DeepSeek V4 | `issue-<n>-backend/` | `feat/issue-<n>-backend` |
-| 3 | **Tests** | `tester` | Qwen3.5-coder | `issue-<n>-tests/` | `test/issue-<n>` |
-| 4 | **Docs** | `docs` | GLM-4.5-Air | `issue-<n>-docs/` | `docs/issue-<n>` |
-| 5 | **Revisor** | `reviewer` | GPT-5.1 | repo principal | `integra/issue-<n>` + PR en borrador |
-| 6 | **Diseñador** | `designer` | GLM-4.5V *(visión)* | solo lee capturas | ninguna — propone, no escribe |
+| 1 | **Planificador** | `planner` | `auto/coding` | repo objetivo (solo lee) | ninguna |
+| 2 | **Backend** | `backend` | `auto/coding` | `issue-<n>-backend/` | `feat/issue-<n>-backend` |
+| 3 | **Tests** | `tester` | `auto/coding:free` | `issue-<n>-tests/` | `test/issue-<n>` |
+| 4 | **Docs** | `docs` | `auto/coding:free` | `issue-<n>-docs/` | `docs/issue-<n>` |
+| 5 | **Revisor** | `reviewer` | `auto/coding` | repo objetivo | `integra/issue-<n>` + PR en borrador |
+| 6 | **Diseñador** | `designer` | `auto/multimodal:free` | solo lee capturas | ninguna — propone, no escribe |
 
 Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 conservan perfiles distintos aunque OmniRoute pueda elegir el mismo proveedor.
 
@@ -65,7 +65,7 @@ Reglas:
 
 ## 2. Agente Backend
 
-**Perfil:** `backend` · **Modelo:** DeepSeek V4 · **Costo:** bajo
+**Perfil:** `backend` · **Ruta:** `auto/coding` · **Costo:** Codex Plus o fallback permitido
 
 El caballo de batalla. Se lleva la mayor parte de los tokens del sistema, y por eso corre en el modelo económico.
 
@@ -94,7 +94,7 @@ Commits: mensajes en imperativo y en español, una línea.
 
 ## 3. Agente de Tests
 
-**Perfil:** `tester` · **Modelo:** Qwen3.5-coder · **Costo:** bajo
+**Perfil:** `tester` · **Ruta:** `auto/coding:free` · **Costo adicional:** USD 0
 
 Escribe las pruebas **contra el criterio de aceptación**, no contra la implementación del agente Backend. Esto es deliberado: si escribiera los tests mirando el código, solo confirmaría lo que el código ya hace, incluidos sus errores.
 
@@ -121,7 +121,7 @@ Reglas:
 
 ## 4. Agente de Docs
 
-**Perfil:** `docs` · **Modelo:** GLM-4.5-Air · **Costo:** gratis
+**Perfil:** `docs` · **Ruta:** `auto/coding:free` · **Costo adicional:** USD 0
 
 Mantiene la documentación al día con lo que hicieron los otros dos. Corre en el modelo gratuito porque redactar documentación tolera bien un modelo más liviano.
 
@@ -190,7 +190,7 @@ NUNCA hagas merge a main. Esa decisión es del usuario.
 
 ## 6. Agente Diseñador
 
-**Perfil:** `designer` · **Modelo:** GLM-4.5V (visión) · **Costo:** bajo
+**Perfil:** `designer` · **Ruta:** `auto/multimodal:free` · **Costo adicional:** USD 0
 
 El único que **mira**. Recibe las capturas de pantalla del stage en tres tamaños y el informe de accesibilidad, y devuelve cambios concretos de CSS. Solo participa cuando la tarea toca interfaz web.
 

@@ -23,8 +23,8 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 5 · OmniRoute | T014–T020 | ✅ Completa |
 | 6 · Telegram | T021–T023 | ⬜ Sin empezar |
 | 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
-| 8 · Codex CLI | T028–T031 | ⬜ Sin empezar |
-| 9 · GitHub | T032–T039 | ⬜ Sin empezar |
+| 8 · Codex CLI | T028–T031 | ✅ Completa |
+| 9 · GitHub | T032–T039 | 🟡 En curso · falta incorporar el proyecto objetivo y snapshot |
 | 10 · La flota | T040–T045 | ⬜ Sin empezar |
 | 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
@@ -85,17 +85,17 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [ ] T027 👤 🔴 **El bot ignora a otra cuenta**
 
 ### Fase 8 — Codex CLI
-- [ ] T028 🤖 Codex CLI instalado
-- [ ] T029 🤖 `config.toml` con `wire_api = "responses"`
-- [ ] T030 🤖 Variables de entorno persistidas
-- [ ] T031 🤖 Los cinco perfiles responden
+- [x] T028 🤖 Codex CLI instalado — 2026-08-07
+- [x] T029 🤖 `config.toml` con `wire_api = "responses"` — 2026-08-07
+- [x] T030 🤖 Variables de entorno persistidas — 2026-08-07
+- [x] T031 🤖 Los cinco perfiles responden — 2026-08-07
 
 ### Fase 9 — GitHub y guardarraíles
-- [ ] T032 👤 Token fine-grained creado
-- [ ] T033 ⚙️ `git` y `gh` configurados
-- [ ] T034 👤 ⚠️ Rama `main` protegida
-- [ ] T035 🤖 gitleaks y pre-commit instalados
-- [ ] T036 🤖 🔴 **El hook bloquea un secreto de prueba**
+- [x] T032 👤 Credencial de GitHub disponible mediante `gh` — 2026-08-07
+- [x] T033 ⚙️ `git` y `gh` configurados — 2026-08-07
+- [x] T034 👤 ⚠️ Rama `main` protegida — 2026-08-07
+- [x] T035 🤖 gitleaks y hook pre-commit instalados — 2026-08-07
+- [x] T036 🤖 🔴 **Gitleaks bloquea un secreto sintético** — 2026-08-07
 - [ ] T037 🤖 Workspace preparado
 - [ ] T038 👤 Primer PR abierto desde el celular
 - [ ] T039 👤 Snapshot `03-stack-completo`
