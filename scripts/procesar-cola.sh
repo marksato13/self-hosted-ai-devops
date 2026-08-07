@@ -20,11 +20,41 @@ mkdir -p "$QUEUE" "$QUEUE/completadas" "$QUEUE/fallidas"
 exec 9>"$QUEUE/.procesador.lock"
 flock -n 9 || { echo "Ya hay otro procesador activo." >&2; exit 75; }
 
+reconciliar_ci() {
+  local archivo issue estado intento pr_json total incompletos fallidos
+  command -v gh >/dev/null 2>&1 || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  [[ -n "${GITHUB_OWNER:-}" && -n "${GITHUB_REPO:-}" ]] || return 0
+  shopt -s nullglob
+  for archivo in "$AI_STATE_DIR"/issues/*/state.json; do
+    estado="$(jq -r '.estado // empty' "$archivo" 2>/dev/null || true)"
+    [[ "$estado" == waiting_approval || "$estado" == ci_failed ]] || continue
+    issue="$(jq -r '.issue // empty' "$archivo" 2>/dev/null || true)"
+    intento="$(jq -r '.intento // 0' "$archivo" 2>/dev/null || true)"
+    [[ "$issue" =~ ^[0-9]+$ ]] || continue
+    pr_json="$(gh pr list --repo "$GITHUB_OWNER/$GITHUB_REPO" --state open \
+      --head "integra/issue-$issue" --limit 1 \
+      --json number,statusCheckRollup 2>/dev/null || true)"
+    [[ -n "$pr_json" ]] || continue
+    total="$(jq -r '.[0].statusCheckRollup | length // 0' <<<"$pr_json" 2>/dev/null || echo 0)"
+    (( total > 0 )) || continue
+    incompletos="$(jq -r '[.[0].statusCheckRollup[] | select(.status != "COMPLETED")] | length' <<<"$pr_json" 2>/dev/null || echo 1)"
+    (( incompletos == 0 )) || continue
+    fallidos="$(jq -r '[.[0].statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED")] | length' <<<"$pr_json" 2>/dev/null || echo 1)"
+    if (( fallidos == 0 )); then
+      ai_estado_guardar "$issue" ci_success "$intento" "verificaciones de GitHub completadas"
+    elif [[ "$estado" != ci_failed ]]; then
+      ai_estado_guardar "$issue" ci_failed "$intento" "verificaciones de GitHub fallidas"
+    fi
+  done
+}
+
 if ai_pausado; then
   echo "Procesador pausado."
   exit 0
 fi
 
+reconciliar_ci
 "$REPO_RAIZ/scripts/encolar-siguiente.sh"
 
 # La exclusión global garantiza que estos .running pertenecen a una ejecución

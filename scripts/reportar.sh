@@ -19,8 +19,10 @@ MENSAJE="${1:-}"; shift || true
 IMAGENES=("$@")
 [[ -z "$MENSAJE" ]] && { echo "Uso: $0 \"<mensaje>\" [imagen.png …]" >&2; exit 1; }
 
-REPO_RAIZ="$(git rev-parse --show-toplevel)"
-set -a; source "${REPO_RAIZ}/.env"; set +a
+REPO_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$REPO_RAIZ/.env}"
+[[ -f "$ENV_FILE" ]] || { echo "Falta el archivo de entorno del notificador." >&2; exit 1; }
+set -a; source "$ENV_FILE"; set +a
 
 : "${TELEGRAM_BOT_TOKEN:?falta TELEGRAM_BOT_TOKEN en .env}"
 : "${TELEGRAM_ALLOWED_CHAT_IDS:?falta TELEGRAM_ALLOWED_CHAT_IDS en .env}"

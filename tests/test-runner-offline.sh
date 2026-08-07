@@ -71,4 +71,12 @@ printf '11\n' >"$AI_QUEUE_DIR/issue-11.pending"
 afirmar_archivo "$AI_QUEUE_DIR/completadas/issue-11.done"
 afirmar_igual "$(grep -c '^11:' "$FAKE_LOG_DIR/executor.calls")" 2
 
+echo "Caso: reconcilia una CI terminada y registra el estado"
+source "$RUNNER/scripts/lib/estado.sh"
+ai_estado_guardar 24 waiting_approval 1 'PR borrador'
+export GITHUB_OWNER=marksato13 GITHUB_REPO=ninjasec-platform
+export FAKE_PR_LIST_JSON='[{"number":24,"statusCheckRollup":[{"status":"COMPLETED","conclusion":"SUCCESS"}]}]'
+"$RUNNER/scripts/procesar-cola.sh" >/dev/null
+afirmar_igual "$(jq -r .estado "$AI_STATE_DIR/issues/24/state.json")" ci_success
+
 echo "Pruebas offline del runner superadas."

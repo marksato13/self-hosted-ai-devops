@@ -64,6 +64,8 @@ jq -e . "$ESTADO/plan.json" >/dev/null
 ai_estado_guardar "$ISSUE" running "$INTENTO" "agentes en ejecución"
 
 mapfile -t AGENTES < <(jq -r '.subtareas[].agente' "$ESTADO/plan.json" | sort -u)
+AGENTES_MENSAJE="$(IFS=,; echo "${AGENTES[*]}")"
+ai_notificar_agentes "$ISSUE" "$AGENTES_MENSAJE"
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/nueva-tarea.sh" "$ISSUE" "${AGENTES[@]}")
 
 pids=()

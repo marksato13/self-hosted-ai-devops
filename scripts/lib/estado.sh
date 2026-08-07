@@ -27,6 +27,62 @@ ai_evento() {
   ) 8>"$dir/.events.lock"
 }
 
+# Los avisos son deliberadamente de "mejor esfuerzo": el estado durable se
+# escribe antes y un fallo de Telegram nunca cambia el resultado del runner.
+# Los textos se construyen aquí a partir de estados conocidos; no se envían
+# prompts, logs, respuestas de proveedores ni detalles arbitrarios.
+ai_notificar_estado() {
+  local issue="$1" estado="$2" intento="${3:-0}"
+  local raiz_repo reportador mensaje=""
+  [[ "$issue" =~ ^[0-9]+$ ]] || return 0
+  [[ "$intento" =~ ^[0-9]+$ ]] || intento=0
+
+  case "$estado" in
+    selected) mensaje="📥 Issue #$issue encolado automáticamente. Lo tomaré en el próximo ciclo." ;;
+    queued) mensaje="🚀 Inicio del issue #$issue (intento $intento)." ;;
+    planning) mensaje="🧭 Issue #$issue: preparando el plan de trabajo." ;;
+    running) mensaje="🤖 Issue #$issue: agentes especializados trabajando en paralelo." ;;
+    integrating) mensaje="🧩 Issue #$issue: integrando ramas y ejecutando verificaciones." ;;
+    retrying) mensaje="🔁 Issue #$issue: fallo transitorio; habrá un reintento controlado (intento $intento)." ;;
+    failed) mensaje="❌ Issue #$issue detenido tras agotar los reintentos. Los logs permanecen en la VM; usa «errores» en Telegram." ;;
+    waiting_approval) mensaje="✅ Issue #$issue: PR listo. La CI debe quedar verde antes de la aprobación; te avisaré por Telegram." ;;
+    ci_success) mensaje="🟢 Issue #$issue: CI aprobada. Ya puedes autorizar el PR desde Telegram." ;;
+    ci_failed) mensaje="🔴 Issue #$issue: la CI falló. No se fusionará; los agentes deben corregirlo." ;;
+    approved) mensaje="👍 Issue #$issue: aprobación registrada y ligada a la revisión actual." ;;
+    completed|merged) mensaje="🎉 Issue #$issue: PR fusionado. El ciclo autónomo puede continuar con la siguiente tarea." ;;
+    *) return 0 ;;
+  esac
+
+  raiz_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  reportador="$raiz_repo/scripts/reportar.sh"
+  [[ -x "$reportador" ]] || return 0
+
+  if ! timeout "${AI_NOTIFY_TIMEOUT_SECONDS:-20}" "$reportador" "$mensaje" \
+      >/dev/null 2>&1; then
+    ai_evento "$issue" notification_failed "no se pudo entregar el aviso de estado $estado"
+  else
+    ai_evento "$issue" notification_sent "aviso de estado $estado entregado"
+  fi
+  return 0
+}
+
+ai_notificar_agentes() {
+  local issue="$1" agentes="$2" raiz_repo reportador
+  [[ "$issue" =~ ^[0-9]+$ ]] || return 0
+  # Solo nombres de perfiles esperables; nunca texto libre del plan.
+  [[ "$agentes" =~ ^[a-z0-9_-]+([,][a-z0-9_-]+)*$ ]] || return 0
+  raiz_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  reportador="$raiz_repo/scripts/reportar.sh"
+  [[ -x "$reportador" ]] || return 0
+  if ! timeout "${AI_NOTIFY_TIMEOUT_SECONDS:-20}" "$reportador" \
+      "👥 Issue #$issue: roles asignados: ${agentes//,/, }." >/dev/null 2>&1; then
+    ai_evento "$issue" notification_failed "no se pudo entregar el aviso de agentes"
+  else
+    ai_evento "$issue" notification_sent "aviso de agentes entregado"
+  fi
+  return 0
+}
+
 ai_estado_guardar() {
   local issue="$1" estado="$2" intento="${3:-0}" detalle="${4:-}"
   local raiz dir ahora tmp
@@ -39,6 +95,7 @@ ai_estado_guardar() {
   chmod 600 "$tmp"
   mv -f -- "$tmp" "$dir/state.json"
   ai_evento "$issue" "$estado" "$detalle"
+  ai_notificar_estado "$issue" "$estado" "$intento"
 }
 
 ai_pausado() {
