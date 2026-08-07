@@ -37,6 +37,11 @@ pr_json() {
     --json number,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup
 }
 
+prs_integracion_json() {
+  gh pr list --repo "$OWNER/$REPO" --state open --limit 100 \
+    --json number,url,state,isDraft,baseRefName,headRefName,headRefOid,mergeStateStatus,statusCheckRollup
+}
+
 validar_pr() {
   local archivo="$1" numero="$2"
   jq -e --argjson numero "$numero" '
@@ -63,7 +68,7 @@ estado_flota() {
 }
 
 procesar() {
-  local sobre="$1" accion valor actor pr tmp nonce exp guardado actual sha head issue
+  local sobre="$1" accion valor actor pr tmp nonce exp guardado actual sha head issue tipo total fusionados detalle
   jq -e '.version == 1 and (.id|type=="string") and (.accion|type=="string") and
     (.valor|type=="string") and (.actor|test("^[0-9]+$")) and (.creado|type=="string")' \
     "$sobre" >/dev/null || return 65
@@ -72,7 +77,7 @@ procesar() {
 
   case "$accion" in
     ayuda)
-      notificar "$actor" 'Comandos: estado, siguiente, issue N, aprobar PR, confirmar CÓDIGO, rechazar PR, detener, reanudar y errores [N]. No existe shell libre.'
+      notificar "$actor" 'Comandos: estado, siguiente, issue N, aprobar PR, aprobar-todo, confirmar CÓDIGO, rechazar PR, detener, reanudar y errores [N]. No existe shell libre.'
       ;;
     estado) notificar "$actor" "$(estado_flota)" ;;
     errores)
@@ -130,6 +135,38 @@ procesar() {
       notificar "$actor" "PR #$valor validado en $(jq -r '.headRefOid[0:12]' "$tmp"). Para autorizar el merge explícitamente responde: confirmar $nonce. El código vence en $TTL minutos y funciona una sola vez."
       rm -f -- "$tmp"
       ;;
+    aprobar-todo)
+      tmp="$(mktemp)"
+      prs_integracion_json >"$tmp"
+      jq '[.[] | select(.state == "OPEN" and .baseRefName == "main" and (.headRefName | startswith("integra/issue-")))] | sort_by(.number)' \
+        "$tmp" >"$tmp.lote"
+      total="$(jq 'length' "$tmp.lote")"
+      if (( total == 0 )); then
+        rm -f -- "$tmp" "$tmp.lote"
+        notificar "$actor" 'No hay PR abiertos de ramas integra/issue-* para aprobar.'
+        return 0
+      fi
+      if ! jq -e 'all(.[];
+          (.mergeStateStatus == "CLEAN" or (.isDraft == true and .mergeStateStatus == "BLOCKED")) and
+          (.statusCheckRollup | length > 0) and
+          ([.statusCheckRollup[] |
+            ((.status // "COMPLETED") == "COMPLETED") and
+            ((.conclusion // "") | IN("SUCCESS", "NEUTRAL", "SKIPPED"))] | all))' \
+          "$tmp.lote" >/dev/null; then
+        rm -f -- "$tmp" "$tmp.lote"
+        notificar "$actor" 'El lote no es aprobable: al menos un PR integra/issue-* tiene conflictos, checks pendientes o checks fallidos. No se creó ninguna autorización.'
+        return 0
+      fi
+      nonce="$(openssl rand -hex 16)"; exp="$(( $(date +%s) + TTL * 60 ))"
+      jq -n --arg nonce "$nonce" --arg actor "$actor" --argjson exp "$exp" \
+        --slurpfile lote "$tmp.lote" \
+        '{version:2,tipo:"lote",nonce:$nonce,actor:$actor,expira:$exp,
+          prs:($lote[0] | map({pr:.number,sha:.headRefOid}))}' >"$APROBACIONES/$nonce.json"
+      chmod 600 "$APROBACIONES/$nonce.json"
+      detalle="$(jq -r 'map("#\(.number) @ \(.headRefOid[0:12])") | join(", ")' "$tmp.lote")"
+      notificar "$actor" "Lote actual validado ($total PR): $detalle. Para fusionar exactamente este lote responde: confirmar $nonce. El código vence en $TTL minutos y funciona una sola vez."
+      rm -f -- "$tmp" "$tmp.lote"
+      ;;
     confirmar)
       guardado="$APROBACIONES/$valor.json"
       [[ -f "$guardado" ]] || { notificar "$actor" 'Código desconocido, vencido o ya utilizado.'; return 0; }
@@ -137,6 +174,34 @@ procesar() {
       mv -- "$guardado" "$guardado.usado"
       [[ "$(jq -r .actor "$guardado.usado")" == "$actor" ]] || { rm -f -- "$guardado.usado"; notificar "$actor" 'El código pertenece a otro operador.'; return 0; }
       (( $(date +%s) <= $(jq -r .expira "$guardado.usado") )) || { rm -f -- "$guardado.usado"; notificar "$actor" 'El código venció; solicita una aprobación nueva.'; return 0; }
+      tipo="$(jq -r '.tipo // "individual"' "$guardado.usado")"
+      if [[ "$tipo" == "lote" ]]; then
+        total="$(jq '.prs | length' "$guardado.usado")"; fusionados=0
+        while IFS=$'\t' read -r pr sha; do
+          tmp="$(mktemp)"; pr_json "$pr" >"$tmp"
+          if ! validar_pr "$tmp" "$pr" || [[ "$(jq -r .headRefOid "$tmp")" != "$sha" ]]; then
+            rm -f -- "$tmp" "$guardado.usado"
+            notificar "$actor" "Lote detenido tras $fusionados de $total merges: PR #$pr cambió o dejó de cumplir las validaciones. No se forzó ningún merge restante."
+            return 1
+          fi
+          head="$(jq -r .headRefName "$tmp")"; issue="${head#integra/issue-}"
+          if [[ "$(jq -r .isDraft "$tmp")" == true ]]; then gh pr ready "$pr" --repo "$OWNER/$REPO" >/dev/null; fi
+          if ! gh pr merge "$pr" --repo "$OWNER/$REPO" --merge --delete-branch --match-head-commit "$sha"; then
+            rm -f -- "$tmp" "$guardado.usado"
+            notificar "$actor" "Lote detenido tras $fusionados de $total merges: GitHub rechazó el PR #$pr. No se usó admin ni bypass y no se intentaron los PR restantes."
+            return 1
+          fi
+          ((fusionados+=1))
+          ai_estado_guardar "$issue" completed 0 "PR #$pr fusionado dentro de lote con confirmación humana"
+          if [[ -d "${AI_TARGET_REPO_DIR:-}" ]]; then
+            (cd "$AI_TARGET_REPO_DIR" && "$REPO_RAIZ/scripts/limpiar-worktrees.sh" "$issue") >/dev/null 2>&1 || true
+          fi
+          rm -f -- "$tmp"
+        done < <(jq -r '.prs[] | [.pr,.sha] | @tsv' "$guardado.usado")
+        rm -f -- "$guardado.usado"
+        notificar "$actor" "Lote completado: $fusionados de $total PR fusionados después de la confirmación humana explícita."
+        return 0
+      fi
       pr="$(jq -r .pr "$guardado.usado")"; sha="$(jq -r .sha "$guardado.usado")"
       tmp="$(mktemp)"; pr_json "$pr" >"$tmp"
       if ! validar_pr "$tmp" "$pr" || [[ "$(jq -r .headRefOid "$tmp")" != "$sha" ]]; then

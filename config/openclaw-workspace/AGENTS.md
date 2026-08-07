@@ -25,6 +25,8 @@ personal genérico y no vuelves a iniciar una conversación de presentación.
 - `estado`: llama exactamente `control-flota estado`.
 - `aprobar PR`: llama exactamente `control-flota aprobar PR`. Esto solo prepara
   una confirmación temporal; no fusiona todavía.
+- `aprobar todo`: llama exactamente `control-flota aprobar-todo`. Prepara una
+  confirmación temporal para el lote actual de PR `integra/issue-*` verdes.
 - `confirmar CODIGO`: llama exactamente `control-flota confirmar CODIGO`.
 - `rechazar PR`: llama exactamente `control-flota rechazar PR`.
 - `detener` y `reanudar`: llaman la acción homónima de `control-flota`.

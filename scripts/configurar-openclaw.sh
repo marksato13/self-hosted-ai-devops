@@ -83,7 +83,7 @@ if [[ -f "$APROBACIONES" ]]; then
       security:"allowlist", ask:"off", askFallback:"deny", autoAllowSkills:false,
       allowlist:[{
         pattern:"/usr/local/bin/control-flota",
-        argPattern:"^(estado|siguiente|detener|reanudar|ayuda)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
+        argPattern:"^(estado|siguiente|detener|reanudar|ayuda|aprobar-todo)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
         source:"configuracion-administrada"
       }]
     }
@@ -96,7 +96,7 @@ else
       security:"allowlist",ask:"off",askFallback:"deny",autoAllowSkills:false,
       allowlist:[{
         pattern:"/usr/local/bin/control-flota",
-        argPattern:"^(estado|siguiente|detener|reanudar|ayuda)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
+        argPattern:"^(estado|siguiente|detener|reanudar|ayuda|aprobar-todo)$|^(issue|aprobar|rechazar) [1-9][0-9]{0,9}$|^confirmar [a-f0-9]{32}$|^errores( [1-9][0-9]{0,9})?$",
         source:"configuracion-administrada"
       }]
     }}
