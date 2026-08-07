@@ -9,6 +9,9 @@ set -a
 [[ -f "$REPO_RAIZ/.env" ]] && source "$REPO_RAIZ/.env"
 set +a
 
+# shellcheck source=scripts/lib/estado.sh
+source "$REPO_RAIZ/scripts/lib/estado.sh"
+
 command -v codex >/dev/null || { echo "Falta codex." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
 command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
@@ -19,12 +22,24 @@ TARGET_REPO="${AI_TARGET_REPO_DIR:-$HOME/workspace/$REPO}"
 TIMEOUT="${TASK_TIMEOUT_MINUTES:-30}m"
 ESTADO="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}/issues/$ISSUE"
 mkdir -p "$ESTADO"
+INTENTO="${AI_ATTEMPT:-1}"
+[[ "$INTENTO" =~ ^[1-9][0-9]*$ ]] || INTENTO=1
+ai_estado_preparar
 git -C "$TARGET_REPO" rev-parse --show-toplevel >/dev/null 2>&1 || {
   echo "AI_TARGET_REPO_DIR no apunta a un repositorio Git: $TARGET_REPO" >&2
   exit 66
 }
 exec 9>"$ESTADO/.lock"
 flock -n 9 || { echo "El issue #$ISSUE ya está ejecutándose." >&2; exit 75; }
+
+finalizar_estado() {
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then
+    ai_estado_guardar "$ISSUE" failed "$INTENTO" "ejecución terminada con código $rc"
+  fi
+}
+trap finalizar_estado EXIT
+ai_estado_guardar "$ISSUE" planning "$INTENTO" "planificando issue"
 
 gh issue view "$ISSUE" --repo "$OWNER/$REPO" \
   --json number,title,body,url,state > "$ESTADO/issue.json"
@@ -44,6 +59,8 @@ timeout "$TIMEOUT" codex exec -p planner -s read-only -C "$TARGET_REPO" \
   --output-schema "$REPO_RAIZ/config/plan.schema.json" \
   -o "$ESTADO/plan.json" - < "$PROMPT_PLAN"
 jq -e . "$ESTADO/plan.json" >/dev/null
+
+ai_estado_guardar "$ISSUE" running "$INTENTO" "agentes en ejecución"
 
 mapfile -t AGENTES < <(jq -r '.subtareas[].agente' "$ESTADO/plan.json" | sort -u)
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/nueva-tarea.sh" "$ISSUE" "${AGENTES[@]}")
@@ -69,4 +86,7 @@ for pid in "${pids[@]}"; do
 done
 [[ $fallos -eq 0 ]] || { echo "$fallos agentes fallaron." >&2; exit 70; }
 
+ai_estado_guardar "$ISSUE" integrating "$INTENTO" "integrando ramas"
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/integrar.sh" "$ISSUE")
+ai_estado_guardar "$ISSUE" waiting_approval "$INTENTO" "pull request en borrador"
+trap - EXIT

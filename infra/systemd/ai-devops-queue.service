@@ -13,6 +13,5 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=%h/workspace %h/.local/state/ai-devops %h/self-hosted-ai-devops
-
-[Install]
-WantedBy=multi-user.target
+TimeoutStartSec=2h
+KillMode=control-group
