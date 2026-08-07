@@ -10,7 +10,9 @@ cada petición. Sustituye a LiteLLM y a las claves comerciales individuales.
 - Codex usa la suscripción ChatGPT Plus ya contratada, mediante OAuth.
 - El resto del tráfico usa capas gratuitas y `auto/*:free`.
 - Si se agota una cuota, se prueba otro proveedor gratuito o la tarea falla.
-- Nunca se configura recarga automática ni una ruta de pago.
+- Nunca se configura recarga automática. Kimi y DeepSeek son conexiones de
+  pago opcionales y solo se invocan explícitamente; no forman parte de una ruta
+  `:free`.
 
 OmniRoute es software MIT, pero los modelos remotos no necesariamente son open
 source. La inferencia ocurre en los servicios conectados y queda sujeta a sus
@@ -84,10 +86,15 @@ codex --profile tester --version
 
 ## Proveedores permitidos
 
-Empezar con estas dos fuentes:
+Fuentes base verificadas:
 
 1. **Codex OAuth:** usa la cuota de ChatGPT Plus ya pagada.
 2. **OpenCode Free:** no requiere credenciales y sirve como fallback.
+
+Además están registradas conexiones API de **Kimi/Moonshot** y **DeepSeek**.
+Ambas pueden generar cargos. No se prueban ni se agregan como fallback sin una
+autorización explícita de gasto. Sonnet 5 aparece en el catálogo mediante
+Auggie, pero sigue pendiente de conexión, condiciones y prueba.
 
 Después se pueden agregar proveedores con capa gratuita recurrente únicamente
 si sus términos permiten el uso personal mediante proxy. No conectar sesiones
@@ -112,7 +119,27 @@ Luego:
 3. Ir a **Providers**.
 4. Conectar **Codex** por OAuth e iniciar sesión con la cuenta ChatGPT Plus.
 5. Confirmar **OpenCode Free**.
-6. No conectar OpenAI API, DeepSeek API, Kimi API ni otras rutas con saldo.
+6. Si se conectan Kimi o DeepSeek, hacerlo directamente en el formulario; no
+   copiar claves en chats ni archivos del repositorio.
+7. Mantener las rutas pagadas fuera de los alias `:free` y sin recarga automática.
+
+## Estado comprobado el 7 de agosto de 2026
+
+| Proveedor | Autenticación | Estado |
+|---|---|---|
+| Codex | OAuth de ChatGPT | Activo; `cx/gpt-5.6-sol` probado |
+| OpenCode Free | Sin autenticación | `oc/big-pickle` probado |
+| Kimi/Moonshot | Clave cifrada por OmniRoute | Conexión activa; prueba pagada pendiente |
+| DeepSeek | Clave cifrada por OmniRoute | Conexión activa; prueba pagada pendiente |
+| Felo | Sin autenticación | `felo/felo-chat` probado desde el panel |
+| DuckDuckGo / The Old LLM | Sin autenticación | Habilitados; prueba bloqueada por saturación compartida |
+| AI Horde | Sin autenticación | No apto todavía: respuesta 401 incoherente |
+| MiMoCode Free | Sin autenticación | No apto todavía: modelo integrado no soportado |
+| Sonnet 5 mediante Auggie | Por determinar | Solo anunciado en catálogo; no probado |
+
+Una conexión “activa” solo confirma autenticación. No confirma costo cero ni
+calidad. Las pruebas de Kimi y DeepSeek se omiten deliberadamente para no
+producir consumo sin autorización.
 
 ## Perfiles
 
@@ -149,3 +176,6 @@ docker compose --env-file .env -f infra/docker-compose.yml restart omniroute
 El volumen anterior `infra_postgres-data` se conserva inicialmente para poder
 auditar o revertir la migración. No eliminarlo hasta completar un ciclo real de
 trabajo con OmniRoute.
+
+El prompt reutilizable para que Claude u otro agente mantenga esta selección se
+encuentra en [prompt-proveedores-desarrollo.md](prompt-proveedores-desarrollo.md).

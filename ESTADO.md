@@ -4,8 +4,9 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 
 **Para el agente:** este archivo es tu punto de reanudación. Al empezar una sesión, leelo primero: la última tarea marcada indica dónde continuar. Al terminar una tarea verificada, marcá su casilla y anotá la fecha. Si una tarea falla dos veces, marcala 🔴 y anotá el error en «Incidencias».
 
-**Estado general:** OmniRoute desplegado y ruta gratuita verificada. Falta
-autorizar Tailscale Serve y conectar Codex OAuth desde el navegador.
+**Estado general:** OmniRoute desplegado, publicado solo en la tailnet, Codex
+OAuth y OpenCode Free verificados. Kimi y DeepSeek están conectados como rutas
+pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 
 ---
 
@@ -19,7 +20,7 @@ autorizar Tailscale Serve y conectar Codex OAuth desde el navegador.
 | 2 · Ubuntu Server | T007–T009 | ✅ Completa |
 | 3 · Tailscale | T010–T011 | 🟡 En curso · falta prueba móvil |
 | 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
-| 5 · OmniRoute | T014–T020 | 🟡 En curso · falta Codex OAuth por navegador |
+| 5 · OmniRoute | T014–T020 | ✅ Completa |
 | 6 · Telegram | T021–T023 | ⬜ Sin empezar |
 | 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
 | 8 · Codex CLI | T028–T031 | ⬜ Sin empezar |
@@ -70,7 +71,7 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T017 🤖 Claves comerciales eliminadas de `.env` — 2026-08-07
 - [x] T018 🤖 Gateway levantado y respondiendo — 2026-08-07
 - [x] T019 🤖 `auto/coding:free` responde con costo cero — 2026-08-07
-- [ ] T020 👤 Codex OAuth y OpenCode Free confirmados en dashboard
+- [x] T020 👤 Codex OAuth y OpenCode Free confirmados en dashboard — 2026-08-07
 
 ### Fase 6 — Telegram
 - [ ] T021 👤 Bot creado en BotFather
