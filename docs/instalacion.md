@@ -266,6 +266,11 @@ contacta directamente a OpenAI ni necesita una clave comercial. La
 configuración persiste en `${OPENCLAW_CONFIG_DIR}/openclaw.json` con permisos
 `600`; las claves solo se referencian desde variables de entorno.
 
+También instala la identidad operativa **Nexo** desde
+`config/openclaw-workspace/`, deshabilita el onboarding genérico y aplica una
+política de herramientas deny-by-default. La cola de issues se habilita solo
+después de registrar el repositorio objetivo.
+
 ### Las dos pruebas de la allowlist
 
 1. **Desde tu cuenta:** escribile `hola` al bot → debe responder.
