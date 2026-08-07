@@ -4,10 +4,10 @@ Este documento define el contrato operativo para avanzar el proyecto objetivo
 sin depender de una conversación interactiva. Telegram es el panel de control,
 GitHub es la fuente de verdad y el host ejecuta trabajo aislado.
 
-> **Estado al 2026-08-07:** el runner persistente, los worktrees, la integración
-> y el PR en borrador están implementados. La traducción de comandos y las
-> aprobaciones de dos fases desde Telegram todavía deben verificarse de extremo
-> a extremo antes de considerarlas operativas.
+> **Estado al 2026-08-07:** runner, scheduler y canal de control están
+> instalados. La allowlist fue confirmada y `AI_AUTONOMOUS_MODE=on` está activo.
+> La primera aprobación real de un PR desde Telegram continúa siendo el ensayo
+> final antes de marcar T043/T044 como completas.
 
 ## Arquitectura y frontera de confianza
 
@@ -160,3 +160,31 @@ sin redacción.
 
 Hasta probar todos esos puntos, el sistema es **asistido**, no completamente
 autónomo.
+
+## Flujo activado en esta VM
+
+1. El roadmap se convierte en issues pequeños y verificables.
+2. Solo un issue abierto con `agente:lista` entra en el alcance automático.
+3. El timer revisa la cola cada minuto. Si no existe tarea ni PR de integración
+   en vuelo, encola el issue elegible de menor número.
+4. El planificador divide el issue; Backend, Tests y Docs trabajan en worktrees
+   independientes y el integrador abre un único PR en borrador.
+5. Mientras el PR siga abierto no se selecciona otro issue.
+6. Nexo notifica el resultado. `aprobar N` genera un código de un solo uso;
+   `confirmar CODIGO` vuelve a validar SHA y CI antes del merge.
+7. Tras el merge se registra `completed`, se limpian worktrees seguros y el
+   timer puede seleccionar el siguiente issue.
+
+Para detener admisión sin matar el trabajo actual: `detener` en Telegram. Para
+continuar: `reanudar`. El freno local equivalente es
+`./scripts/control-runner.sh pausar|reanudar`.
+
+Rutas de operación:
+
+```text
+Plataforma: /home/m4rk/self-hosted-ai-devops
+Proyecto:   /home/m4rk/workspace/ninjasec-platform
+Estados:    /home/m4rk/.local/state/ai-devops/issues/<n>/state.json
+Eventos:    /home/m4rk/.local/state/ai-devops/issues/<n>/events.jsonl
+Cola:       /home/m4rk/.local/state/ai-devops/queue
+```
