@@ -68,7 +68,7 @@ services:
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${AI_QUEUE_DIR:-/home/CAMBIAR/.local/state/ai-devops/queue}:/queue
-      - ../scripts/control-flota.sh:/usr/local/bin/control-flota:ro
+      - ../config/openclaw-plugins/flota-control:/opt/openclaw-plugins/flota-control:ro
     ports:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
     command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]

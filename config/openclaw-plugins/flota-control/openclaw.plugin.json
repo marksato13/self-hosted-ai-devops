@@ -1,0 +1,10 @@
+{
+  "id": "flota-control",
+  "name": "Control determinista de la flota",
+  "description": "Convierte comandos Telegram autorizados en solicitudes de control cerradas.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
