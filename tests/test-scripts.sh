@@ -30,6 +30,17 @@ probar_fallo "rechaza issue no numérico" env AI_QUEUE_DIR="$tmp/queue" \
 probar_fallo "ejecutor rechaza issue no numérico" \
   "$REPO_RAIZ/scripts/ejecutar-issue.sh" '*'
 
+HOME="$tmp/home" ENV_DESTINO="$tmp/config/.env" \
+  "$REPO_RAIZ/scripts/preparar-entorno.sh" >/dev/null
+test "$(stat -c %a "$tmp/config/.env")" = 600 || ((fallos+=1))
+test "$(stat -c %a "$tmp/home/.openclaw")" = 700 || ((fallos+=1))
+test "$(stat -c %a "$tmp/home/.local/state/ai-devops/queue")" = 700 || ((fallos+=1))
+grep -q '^LITELLM_MASTER_KEY=sk-.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^POSTGRES_PASSWORD=.' "$tmp/config/.env" || ((fallos+=1))
+grep -q '^OPENCLAW_GATEWAY_TOKEN=.' "$tmp/config/.env" || ((fallos+=1))
+probar_fallo "no sobrescribe un entorno existente" env HOME="$tmp/home" \
+  ENV_DESTINO="$tmp/config/.env" "$REPO_RAIZ/scripts/preparar-entorno.sh"
+
 if [[ $fallos -gt 0 ]]; then
   echo "$fallos pruebas fallaron." >&2
   exit 1

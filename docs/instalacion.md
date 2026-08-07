@@ -180,6 +180,10 @@ nano .env
 
 ### 5.2 Levantar el gateway
 
+Las imágenes están fijadas por digest. Para actualizarlas se abre un PR que
+registra la versión y el digest nuevo; no se usa `latest` directamente en la
+VM desatendida.
+
 ```bash
 docker compose --env-file .env -f infra/docker-compose.yml up -d postgres litellm
 docker compose --env-file .env -f infra/docker-compose.yml logs -f litellm

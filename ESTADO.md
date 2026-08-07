@@ -16,10 +16,10 @@ infraestructura de la VM continúa sin desplegar ni verificar.
 | **00 · El implementador** | **T00A–T00E** | ✅ Completa · *en esta VM* |
 | 0 · Preparación | T001–T004 | ⬜ Sin empezar |
 | 1 · VM en ESXi | T005–T006 | ⬜ Sin empezar |
-| 2 · Ubuntu Server | T007–T009 | 🟡 En curso · falta firewall |
+| 2 · Ubuntu Server | T007–T009 | ✅ Completa |
 | 3 · Tailscale | T010–T011 | 🟡 En curso · falta prueba móvil |
 | 4 · Docker | T012–T013 | 🟡 En curso · falta snapshot |
-| 5 · LiteLLM | T014–T020 | ⬜ Sin empezar |
+| 5 · LiteLLM | T014–T020 | 🟡 En curso · faltan proveedores y claves virtuales |
 | 6 · Telegram | T021–T023 | ⬜ Sin empezar |
 | 7 · OpenClaw | T024–T027 | ⬜ Sin empezar |
 | 8 · Codex CLI | T028–T031 | ⬜ Sin empezar |
@@ -53,7 +53,7 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 ### Fase 2 — Ubuntu Server
 - [x] T007 👤 Ubuntu Server 26.04 instalado, con OpenSSH — 2026-08-06
 - [x] T008 🤖 Sistema actualizado y utilidades instaladas — 2026-08-06
-- [ ] T009 🤖 Firewall `ufw` activo
+- [x] T009 🤖 Firewall `ufw` activo — 2026-08-07
 
 ### Fase 3 — Tailscale
 - [x] T010 ⚙️ Tailscale instalado y autenticado — 2026-08-06
@@ -64,11 +64,11 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [ ] T013 👤 Snapshot `02-base-lista`
 
 ### Fase 5 — LiteLLM
-- [ ] T014 🤖 Repositorio clonado en la VM
-- [ ] T015 🤖 `.env` creado con permisos `600`
-- [ ] T016 🤖 Claves internas generadas
+- [x] T014 🤖 Repositorio clonado en la VM — 2026-08-07
+- [x] T015 🤖 `.env` creado con permisos `600` — 2026-08-07
+- [x] T016 🤖 Claves internas generadas — 2026-08-07
 - [ ] T017 ⚙️ Cuatro claves de proveedor cargadas
-- [ ] T018 🤖 Gateway levantado y respondiendo
+- [x] T018 🤖 Gateway levantado y respondiendo — 2026-08-07
 - [ ] T019 🤖 Los cinco modelos responden
 - [ ] T020 🤖 Claves virtuales con presupuesto de 5 USD
 
