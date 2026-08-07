@@ -70,6 +70,7 @@ PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 PLANNER_MODEL="${CODEX_PLANNER_MODEL:-cx/gpt-5.6-sol}"
 PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-cx/gpt-5.6-terra}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.5}")
 planner_ok=0
+planner_rate_limited=0
 for modelo in "${PLANNER_MODELS[@]}"; do
   [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
   planner_log="$ESTADO/planner-${modelo//[^a-zA-Z0-9]/_}.log"
@@ -83,9 +84,17 @@ for modelo in "${PLANNER_MODELS[@]}"; do
     cat "$planner_log" >&2
     break
   fi
+  planner_rate_limited=1
   echo "Planificador saturado con $modelo; probando el siguiente modelo Codex." >&2
 done
-(( planner_ok == 1 )) || { echo "El planificador no pudo responder con los modelos configurados." >&2; exit 1; }
+(( planner_ok == 1 )) || {
+  if (( planner_rate_limited == 1 )); then
+    echo "Todos los modelos de planificación están temporalmente limitados." >&2
+    exit 75
+  fi
+  echo "El planificador no pudo responder con los modelos configurados." >&2
+  exit 1
+}
 jq -e . "$ESTADO/plan.json" >/dev/null
 jq -e '
   (.resumen | type == "string" and length > 0) and

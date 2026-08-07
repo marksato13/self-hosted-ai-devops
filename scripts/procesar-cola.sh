@@ -121,6 +121,21 @@ if AI_ATTEMPT="$intentos" "$REPO_RAIZ/scripts/ejecutar-issue.sh" "$issue"; then
 else
   rc=$?
 fi
+# Un 75 significa saturación/cuota temporal del proveedor, no un fallo del
+# issue. No consume MAX_RETRIES_PER_TASK; se conserva el intento lógico y se
+# reprograma con una espera mayor para no martillar OmniRoute.
+if (( rc == 75 )); then
+  previo=$((intentos - 1)); (( previo < 0 )) && previo=0
+  printf '%s\n' "$previo" > "$intentos_file"
+  espera=$((RETRY_DELAY * 5)); (( espera < 300 )) && espera=300
+  retry_tmp="$QUEUE/.issue-${issue}.retry-at.$$"
+  printf '%s\n' "$(( $(date +%s) + espera ))" > "$retry_tmp"
+  mv -f -- "$retry_tmp" "$QUEUE/.issue-${issue}.retry-at"
+  mv -- "$running" "$QUEUE/issue-${issue}.pending"
+  ai_estado_guardar "$issue" retrying "$previo" "proveedor temporalmente saturado; reintento en ${espera}s"
+  echo "Issue #$issue en espera por límite temporal del proveedor (${espera}s)." >&2
+  exit 0
+fi
 if (( intentos <= MAX_RETRIES )); then
   espera=$((RETRY_DELAY * intentos))
   retry_tmp="$QUEUE/.issue-${issue}.retry-at.$$"
