@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "${FAKE_LOG_DIR:?}"
+# Nunca registrar encabezados ni URL completa: podrían contener el token.
+printf 'invocacion\n' >>"$FAKE_LOG_DIR/curl.calls"
+codigo="${FAKE_HTTP_STATUS:-200}"
+if [[ "$codigo" =~ ^2 ]]; then respuesta='{"ok":true,"result":{}}'; else respuesta='{"ok":false,"description":"simulado"}'; fi
+salida=''
+fallar_http=0
+while (($#)); do
+  case "$1" in
+    -o) shift; salida="${1:-}" ;;
+    -w|--write-out) shift ;;
+    --fail-with-body|-f) fallar_http=1 ;;
+  esac
+  shift || true
+done
+[[ -z "$salida" || "$salida" == /dev/null ]] || printf '%s' "$respuesta" >"$salida"
+printf '%s' "$codigo"
+if (( fallar_http )) && [[ ! "$codigo" =~ ^2 ]]; then exit 22; fi
+exit "${FAKE_CURL_RC:-0}"
