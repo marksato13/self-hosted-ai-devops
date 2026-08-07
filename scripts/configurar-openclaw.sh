@@ -20,10 +20,33 @@ set +a
   echo "TELEGRAM_ALLOWED_CHAT_IDS debe contener IDs numéricos separados por coma." >&2
   exit 65
 }
+[[ -n "${OMNIROUTE_API_KEY:-}" ]] || {
+  echo "OMNIROUTE_API_KEY no está definida." >&2
+  exit 65
+}
 
 ids_json="$(jq -nc --arg ids "$TELEGRAM_ALLOWED_CHAT_IDS" '$ids | split(",")')"
 patch="$(jq -nc --argjson ids "$ids_json" '{
   gateway: {mode:"local", bind:"lan", auth:{mode:"token"}},
+  models: {
+    mode:"merge",
+    providers:{omniroute:{
+      baseUrl:"http://omniroute:20128/v1",
+      apiKey:{source:"env",provider:"default",id:"OMNIROUTE_API_KEY"},
+      auth:"api-key",
+      api:"openai-responses",
+      models:[{
+        id:"oc/big-pickle",
+        name:"OpenCode Big Pickle vía OmniRoute",
+        reasoning:true,
+        input:["text","image"],
+        contextWindow:200000,
+        maxTokens:32000,
+        agentRuntime:{id:"openclaw"}
+      }]
+    }}
+  },
+  agents:{defaults:{model:{primary:"omniroute/oc/big-pickle"}}},
   channels: {telegram:{
     enabled:true,
     botToken:{source:"env",provider:"default",id:"TELEGRAM_BOT_TOKEN"},
@@ -41,5 +64,5 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE" run --rm -T \
   --entrypoint node openclaw-gateway dist/index.js config validate
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" up -d openclaw-gateway
 
-echo "OpenClaw configurado con Telegram en modo allowlist y grupos deshabilitados."
+echo "OpenClaw configurado con Telegram en allowlist y OmniRoute como modelo."
 echo "Falta probar: tu cuenta recibe respuesta y otra cuenta es ignorada."

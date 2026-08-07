@@ -120,6 +120,7 @@ fase7() {
   chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw-gateway'
   chk T025 "Configuración OpenClaw válida" 'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" run --rm -T --entrypoint node openclaw-gateway dist/index.js config validate'
   chk T025 "Telegram usa allowlist cerrada" 'jq -e '\''(.gateway.mode == "local") and (.channels.telegram.enabled == true) and (.channels.telegram.dmPolicy == "allowlist") and (.channels.telegram.allowFrom | length > 0) and (.channels.telegram.groupPolicy == "disabled")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
+  chk T025 "Modelo usa OmniRoute local"      'jq -e '\''(.models.providers.omniroute.baseUrl == "http://omniroute:20128/v1") and (.agents.defaults.model.primary == "omniroute/oc/big-pickle")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
   chk T025 "Gateway responde saludable"    'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" exec -T openclaw-gateway node dist/index.js gateway health'
   manual T026 "El bot responde a tu cuenta"
   manual T027 "🔴 El bot IGNORA a otra cuenta"

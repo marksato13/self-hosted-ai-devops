@@ -260,8 +260,11 @@ docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gate
 ```
 
 El script fija `gateway.mode=local`, autenticación por token, mensajes directos
-en modo `allowlist` y grupos deshabilitados. La configuración persiste en
-`${OPENCLAW_CONFIG_DIR}/openclaw.json` con permisos `600`.
+en modo `allowlist` y grupos deshabilitados. También registra OmniRoute por la
+red interna de Docker y selecciona `omniroute/oc/big-pickle`; así OpenClaw no
+contacta directamente a OpenAI ni necesita una clave comercial. La
+configuración persiste en `${OPENCLAW_CONFIG_DIR}/openclaw.json` con permisos
+`600`; las claves solo se referencian desde variables de entorno.
 
 ### Las dos pruebas de la allowlist
 
