@@ -61,12 +61,14 @@ services:
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       OPENCLAW_DISABLE_BONJOUR: "1"
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
+      AI_QUEUE_DIR: /queue
       OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY}
       TZ: ${TZ:-America/Lima}
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${AI_QUEUE_DIR:-/home/CAMBIAR/.local/state/ai-devops/queue}:/queue
-      - ../scripts/solicitar-issue.sh:/usr/local/bin/solicitar-issue:ro
+      - ../scripts/control-flota.sh:/usr/local/bin/control-flota:ro
     ports:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
     command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]

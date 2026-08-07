@@ -30,18 +30,39 @@ set -a; source "${REPO_RAIZ}/.env"; set +a
 API="https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}"
 FALLOS=0
 
-for CHAT in ${TELEGRAM_ALLOWED_CHAT_IDS//,/ }; do
+telegram_api() {
+  local respuesta
+  respuesta="$(mktemp)"
+  if ! curl --fail-with-body -sS -o "$respuesta" "$@"; then
+    rm -f -- "$respuesta"
+    return 1
+  fi
+  jq -e '.ok == true' "$respuesta" >/dev/null 2>&1
+  local rc=$?
+  rm -f -- "$respuesta"
+  return "$rc"
+}
+
+DESTINOS="${TELEGRAM_ALLOWED_CHAT_IDS//,/ }"
+if [[ -n "${TELEGRAM_DESTINO_CHAT_ID:-}" ]]; then
+  case ",${TELEGRAM_ALLOWED_CHAT_IDS}," in
+    *",${TELEGRAM_DESTINO_CHAT_ID},"*) DESTINOS="$TELEGRAM_DESTINO_CHAT_ID" ;;
+    *) echo "TELEGRAM_DESTINO_CHAT_ID no pertenece a la allowlist." >&2; exit 1 ;;
+  esac
+fi
+
+for CHAT in $DESTINOS; do
 
   # ---------- sin imágenes: texto y listo ----------
   if [[ ${#IMAGENES[@]} -eq 0 ]]; then
-    curl -sS -o /dev/null -X POST "${API}/sendMessage" \
+    telegram_api -X POST "${API}/sendMessage" \
       -d chat_id="$CHAT" --data-urlencode text="$MENSAJE" || ((FALLOS++))
     continue
   fi
 
   # ---------- una imagen: sendPhoto ----------
   if [[ ${#IMAGENES[@]} -eq 1 ]]; then
-    curl -sS -o /dev/null -X POST "${API}/sendPhoto" \
+    telegram_api -X POST "${API}/sendPhoto" \
       -F chat_id="$CHAT" -F caption="$MENSAJE" \
       -F photo=@"${IMAGENES[0]}" || ((FALLOS++))
     continue
@@ -57,7 +78,7 @@ for CHAT in ${TELEGRAM_ALLOWED_CHAT_IDS//,/ }; do
       '. + [ if $primero then {type:"photo",media:$a,caption:$c} else {type:"photo",media:$a} end ]' <<<"$MEDIA")"
     ((i++))
   done
-  curl -sS -o /dev/null -X POST "${API}/sendMediaGroup" \
+  telegram_api -X POST "${API}/sendMediaGroup" \
     -F chat_id="$CHAT" -F media="$MEDIA" "${ARGS[@]}" || ((FALLOS++))
 done
 
