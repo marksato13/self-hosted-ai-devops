@@ -47,6 +47,7 @@ patch="$(jq -nc --argjson ids "$ids_json" '{
     }}
   },
   agents:{defaults:{model:{primary:"omniroute/oc/big-pickle"}}},
+  tools:{allow:[]},
   channels: {telegram:{
     enabled:true,
     botToken:{source:"env",provider:"default",id:"TELEGRAM_BOT_TOKEN"},
@@ -62,7 +63,8 @@ printf '%s' "$patch" | docker compose --env-file "$ENV_FILE" -f "$COMPOSE" \
 
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" run --rm -T \
   --entrypoint node openclaw-gateway dist/index.js config validate
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE" up -d openclaw-gateway
+"$REPO_RAIZ/scripts/configurar-identidad-openclaw.sh"
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE" up -d --force-recreate openclaw-gateway
 
 echo "OpenClaw configurado con Telegram en allowlist y OmniRoute como modelo."
 echo "Falta probar: tu cuenta recibe respuesta y otra cuenta es ignorada."
