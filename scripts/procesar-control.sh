@@ -102,7 +102,7 @@ procesar() {
       ;;
     issue)
       ! ai_pausado || { notificar "$actor" "La flota está pausada; usa reanudar antes de solicitar el issue #$valor."; return 0; }
-      if AI_QUEUE_DIR="$COLA" "$REPO_RAIZ/scripts/solicitar-issue.sh" "$valor"; then
+      if AI_QUEUE_DIR="$COLA" AI_MANUAL_REQUEUE=1 "$REPO_RAIZ/scripts/solicitar-issue.sh" "$valor"; then
         notificar "$actor" "Issue #$valor encolado."
       else
         notificar "$actor" "No se pudo encolar el issue #$valor; puede estar ya pendiente o activo."
