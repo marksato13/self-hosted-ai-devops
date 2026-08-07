@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "${FAKE_LOG_DIR:?}"
+printf '%q ' "$@" >>"$FAKE_LOG_DIR/gh.args"; printf '\n' >>"$FAKE_LOG_DIR/gh.args"
+
+case "${1:-} ${2:-}" in
+  "issue view")
+    [[ "${FAKE_GH_ISSUE_RC:-0}" == 0 ]] || exit "$FAKE_GH_ISSUE_RC"
+    printf '{"number":%s,"title":"Prueba","body":"Sin secretos","url":"https://example.invalid/issues/%s","state":"%s"}\n' \
+      "${3:-1}" "${3:-1}" "${FAKE_GH_ISSUE_STATE:-OPEN}"
+    ;;
+  "pr create") printf 'https://example.invalid/pull/17\n' ;;
+  "pr view")
+    checks="[{\"status\":\"COMPLETED\",\"conclusion\":\"${FAKE_CI_CONCLUSION:-SUCCESS}\"}]"
+    [[ "${FAKE_CI_EMPTY:-0}" == 1 ]] && checks='[]'
+    printf '{"url":"https://example.invalid/pull/17","number":%s,"headRefOid":"%s","headRefName":"%s","baseRefName":"%s","mergeStateStatus":"%s","statusCheckRollup":%s,"state":"%s","isDraft":%s}\n' \
+      "${3:-17}" "${FAKE_PR_SHA:-0123456789abcdef}" "${FAKE_PR_HEAD:-integra/issue-2}" \
+      "${FAKE_PR_BASE:-main}" "${FAKE_PR_MERGE_STATE:-CLEAN}" "$checks" \
+      "${FAKE_PR_STATE:-OPEN}" "${FAKE_PR_DRAFT:-true}"
+    ;;
+  "pr checks") exit "${FAKE_CI_RC:-0}" ;;
+  "pr merge") exit "${FAKE_MERGE_RC:-0}" ;;
+esac

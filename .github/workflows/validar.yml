@@ -16,7 +16,11 @@ jobs:
       - name: Instalar herramientas
         run: sudo apt-get update && sudo apt-get install -y jq shellcheck
       - name: Probar scripts
-        run: ./tests/test-scripts.sh
+        run: |
+          for prueba in tests/test-*.sh; do
+            echo "Ejecutando ${prueba}"
+            "./${prueba}"
+          done
       - name: Analizar Bash
         # El repositorio heredó avisos de estilo; CI bloquea errores reales.
         run: shellcheck --severity=error scripts/*.sh tests/*.sh

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "${FAKE_LOG_DIR:?}"
+printf '%q ' "$@" >>"$FAKE_LOG_DIR/codex.args"; printf '\n' >>"$FAKE_LOG_DIR/codex.args"
+entrada="$(cat)"
+printf '%s' "$entrada" >>"$FAKE_LOG_DIR/codex.stdin"
+
+contador="$FAKE_LOG_DIR/codex.count"
+n=0; [[ ! -f "$contador" ]] || n="$(<"$contador")"
+((n+=1)); printf '%s\n' "$n" >"$contador"
+if (( n <= ${FAKE_CODEX_FAILURES:-0} )); then exit 70; fi
+
+salida=''
+while (($#)); do
+  [[ "$1" == "-o" ]] && { shift; salida="${1:-}"; }
+  shift || true
+done
+if [[ -n "$salida" ]]; then
+  printf '%s\n' "${FAKE_CODEX_OUTPUT:-{\"subtareas\":[{\"agente\":\"backend\",\"descripcion\":\"Prueba\",\"criterio_aceptacion\":\"Pasa\"}]}}" >"$salida"
+fi

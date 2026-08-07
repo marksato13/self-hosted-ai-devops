@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${1:-} ${2:-}" == "rand -hex" ]] || exit 64
+printf '%s\n' "${FAKE_NONCE:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}"
