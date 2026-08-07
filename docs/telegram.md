@@ -120,6 +120,37 @@ modelo esté saturado, falle con 401 o termine sin producir una respuesta.
 El texto conversacional puede seguir usándose para consultas, pero no debe
 usarse para aprobar o cambiar estado: depende de la respuesta del modelo.
 
+### Atajos para tocar, copiar o reenviar
+
+Los atajos aparecen en el menú `/` de Telegram. Son equivalentes a los
+comandos largos y mantienen la allowlist y la confirmación en dos pasos.
+
+| Atajo | Equivale a |
+|---|---|
+| `/a 3` | `/aprobar 3` |
+| `/c CODIGO` | `/confirmar CODIGO` |
+| `/todo` | `/aprobar_todo` |
+| `/estado` | `/flota estado` |
+| `/sig` | `/flota siguiente` |
+| `/i 12` | `/flota issue 12` |
+| `/error` o `/error 12` | `/flota errores` o `/flota errores 12` |
+| `/pausa` | `/flota detener` |
+| `/seguir` | `/flota reanudar` |
+
+Bloque listo para guardar en **Mensajes guardados** y reenviar al bot:
+
+```text
+/estado
+/sig
+/a 3
+/todo
+/pausa
+/seguir
+```
+
+Para aprobar, cambia únicamente el número. El código de `/c` es efímero y no
+conviene guardarlo ni reenviarlo a otros chats.
+
 ## 5. Elegir cómo aprobar
 
 ### Un PR — recomendado
@@ -128,9 +159,9 @@ Esta opción permite revisar cada cambio:
 
 ```text
 Nexo: ✅ PR #18 listo. CI 6/6. https://github.com/.../pull/18
-Tú:   aprobar 18
+Tú:   /a 18
 Nexo: PR #18 validado en 7ac91e2. Responde confirmar 91ab... antes de 10 min.
-Tú:   confirmar 91ab...
+Tú:   /c 91ab...
 Nexo: 🟢 PR #18 fusionado. Continúo con issue #13.
 ```
 
@@ -142,7 +173,7 @@ el PR o la CI deja de estar verde, hay que solicitar uno nuevo.
 Esta opción reduce intervenciones, pero no es un bypass de seguridad:
 
 ```text
-Tú:   aprobar todo
+Tú:   /todo
 Nexo: Lote preparado: PR #18 (7ac91e2), #19 (13b0f6a).
       Todos tienen CI verde. Responde confirmar c3d4... antes de 10 min.
 Tú:   confirmar c3d4...

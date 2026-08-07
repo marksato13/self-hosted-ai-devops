@@ -122,7 +122,7 @@ fase7() {
   chk T025 "Telegram usa allowlist cerrada" 'jq -e '\''(.gateway.mode == "local") and (.channels.telegram.enabled == true) and (.channels.telegram.dmPolicy == "allowlist") and (.channels.telegram.allowFrom | length > 0) and (.channels.telegram.groupPolicy == "disabled")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
   chk T025 "Modelo usa OmniRoute local"      'jq -e '\''(.models.providers.omniroute.baseUrl == "http://omniroute:20128/v1") and (.agents.defaults.model.primary == "omniroute/oc/big-pickle")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
   chk T025 "Herramientas denegadas por defecto" 'jq -e '\''(.tools.allow | type == "array") and (.tools.allow | length == 0)'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
-  chk T025 "Plugin de control determinista cargado" 'docker exec openclaw-gateway node dist/index.js plugins inspect flota-control --runtime --json | jq -e '\''.plugin.status == "loaded" and (.commands | sort == ["aprobar","aprobar_todo","confirmar","flota","rechazar"])'\'''
+  chk T025 "Plugin de control determinista cargado" 'docker exec openclaw-gateway node dist/index.js plugins inspect flota-control --runtime --json | jq -e '\''.plugin.status == "loaded" and (["aprobar","aprobar_todo","confirmar","flota","rechazar","a","c","todo","estado","sig","pausa","seguir","i","error"] - .commands | length == 0)'\'''
   chk T025 "Identidad Nexo instalada"       'grep -q "Name:.*Nexo" "${OPENCLAW_CONFIG_DIR}/workspace/IDENTITY.md" && test ! -f "${OPENCLAW_CONFIG_DIR}/workspace/BOOTSTRAP.md"'
   chk T025 "Gateway responde saludable"    'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" exec -T openclaw-gateway node dist/index.js gateway health'
   manual T026 "El bot responde a tu cuenta"
