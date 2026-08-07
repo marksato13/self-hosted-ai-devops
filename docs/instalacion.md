@@ -488,14 +488,19 @@ Borra los worktrees y las ramas ya integradas. Sin esto, `~/worktrees` se llena 
 El último paso es conectar la cola aislada. Instala las unidades del usuario:
 
 ```bash
-mkdir -p ~/.config/systemd/user ~/.local/state/ai-devops/queue
-cp infra/systemd/ai-devops-queue.* ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now ai-devops-queue.path
+./scripts/instalar-runner.sh
+systemctl --user status ai-devops-queue.path ai-devops-queue.timer
+./scripts/control-runner.sh estado
 ```
 
 OpenClaw solo ejecuta `solicitar-issue <n>`; el servicio del host realiza el
 ciclo. El contrato y la recuperación están en [flujo-github.md](flujo-github.md).
+
+El `.path` despierta el runner al llegar trabajo y el `.timer` revisa la cola
+una vez por minuto para recuperarse de reinicios o eventos perdidos. Los
+comandos Telegram y la aprobación de dos fases se detallan en
+[ciclo-autonomo.md](ciclo-autonomo.md); no se consideran instalados hasta
+superar sus pruebas de extremo a extremo.
 
 1. `codex --profile planner` → plan en JSON con las subtareas
 2. `./scripts/nueva-tarea.sh <issue>`

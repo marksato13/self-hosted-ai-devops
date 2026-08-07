@@ -34,6 +34,18 @@ Worktrees en uso:
 ./scripts/limpiar-worktrees.sh --listar
 ```
 
+Runner autónomo:
+
+```bash
+./scripts/control-runner.sh estado
+./scripts/control-runner.sh pausar     # no interrumpe la tarea activa
+./scripts/control-runner.sh reanudar
+systemctl --user status ai-devops-queue.path ai-devops-queue.timer
+journalctl --user -u ai-devops-queue.service --since today
+jq . ~/.local/state/ai-devops/issues/12/state.json
+tail ~/.local/state/ai-devops/issues/12/events.jsonl
+```
+
 Bucle visual (solo si está en uso):
 
 ```bash
@@ -61,6 +73,7 @@ alias ai-ps='docker compose -f ~/self-hosted-ai-devops/infra/docker-compose.yml 
 Si el sistema se descontrola —bucle de reintentos, commits raros, respuestas a desconocidos:
 
 ```bash
+./scripts/control-runner.sh pausar
 ai-stop
 ```
 
@@ -167,6 +180,33 @@ git worktree prune                    # borra referencias a directorios que ya n
 | `worktree add` dice que la rama ya existe | Hay una tarea vieja con ese número sin limpiar |
 | `~/worktrees` ocupa mucho disco | Tareas terminadas sin limpiar. `df -h` y limpiá |
 | Un worktree apunta a un directorio borrado | `git worktree prune` |
+
+### La cola quedó detenida después de un reinicio
+
+```bash
+./scripts/control-runner.sh estado
+systemctl --user status ai-devops-queue.timer ai-devops-queue.path
+find ~/.local/state/ai-devops/queue -maxdepth 2 -type f -printf '%p\n'
+journalctl --user -u ai-devops-queue.service -n 100
+```
+
+No muevas un `.running` mientras el servicio esté activo. El reconciliador lo
+devuelve automáticamente a `.pending` cuando puede demostrar que no existe
+otro procesador. Si está pausado, `reanudar` despierta el servicio.
+
+### Un issue reintenta continuamente
+
+`MAX_RETRIES_PER_TASK` cuenta reintentos además del intento inicial. El estado
+`retrying` incluye la espera y el código de salida. Cuando se agota el límite,
+la solicitud queda en `queue/fallidas/` y no vuelve a ejecutarse sola.
+
+```bash
+jq . ~/.local/state/ai-devops/issues/12/state.json
+tail -n 20 ~/.local/state/ai-devops/issues/12/events.jsonl | jq .
+```
+
+No borres los contadores para forzar otro intento sin revisar antes ramas,
+worktrees y el error que causó el fallo.
 
 ### Un commit fue bloqueado por gitleaks
 
