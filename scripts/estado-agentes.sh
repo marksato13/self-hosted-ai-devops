@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Resumen seguro y breve de la flota. No imprime logs, prompts ni secretos.
 set -euo pipefail
+RAIZ_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$RAIZ_REPO/.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # Solo carga variables; nunca imprime el archivo ni sus valores.
+  source "$ENV_FILE"
+  set +a
+fi
 OBJ="${AI_TARGET_REPO_DIR:-$HOME/workspace/${GITHUB_REPO:-ninjasec-platform}}"
 ESTADO="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}"
 issue=""; fase="sin tarea activa"
