@@ -92,4 +92,5 @@ done
 ai_estado_guardar "$ISSUE" integrating "$INTENTO" "integrando ramas"
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/integrar.sh" "$ISSUE")
 ai_estado_guardar "$ISSUE" waiting_approval "$INTENTO" "pull request en borrador"
+ai_notificar_pr "$ISSUE" abierto
 trap - EXIT

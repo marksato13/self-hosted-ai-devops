@@ -83,6 +83,33 @@ ai_notificar_agentes() {
   return 0
 }
 
+ai_notificar_pr() {
+  local issue="$1" resultado="$2" raiz_repo reportador datos numero url mensaje
+  [[ "$issue" =~ ^[0-9]+$ ]] || return 0
+  [[ -n "${GITHUB_OWNER:-}" && -n "${GITHUB_REPO:-}" ]] || return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  datos="$(gh pr list --repo "$GITHUB_OWNER/$GITHUB_REPO" --state open \
+    --head "integra/issue-$issue" --limit 1 --json number,url 2>/dev/null || true)"
+  numero="$(jq -r '.[0].number // empty' <<<"$datos" 2>/dev/null || true)"
+  url="$(jq -r '.[0].url // empty' <<<"$datos" 2>/dev/null || true)"
+  [[ "$numero" =~ ^[0-9]+$ && "$url" == https://github.com/* ]] || return 0
+  case "$resultado" in
+    abierto) mensaje="📦 PR #$numero listo para el issue #$issue: $url. Esperando CI." ;;
+    verde) mensaje="✅ PR #$numero con CI verde: $url. Responde «aprobar $numero» o «aprobar todo»." ;;
+    rojo) mensaje="❌ PR #$numero con CI fallida: $url. No se fusionará; usa «errores $issue»." ;;
+    *) return 0 ;;
+  esac
+  raiz_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  reportador="$raiz_repo/scripts/reportar.sh"
+  [[ -x "$reportador" ]] || return 0
+  if ! timeout "${AI_NOTIFY_TIMEOUT_SECONDS:-20}" "$reportador" "$mensaje" >/dev/null 2>&1; then
+    ai_evento "$issue" notification_failed "no se pudo entregar el aviso del PR"
+  else
+    ai_evento "$issue" notification_sent "aviso del PR entregado"
+  fi
+}
+
 ai_estado_guardar() {
   local issue="$1" estado="$2" intento="${3:-0}" detalle="${4:-}"
   local raiz dir ahora tmp

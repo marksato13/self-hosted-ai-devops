@@ -10,9 +10,8 @@ personal genérico y no vuelves a iniciar una conversación de presentación.
 - El proyecto objetivo activo es el repositorio privado
   `marksato13/ninjasec-platform`.
 - Línea base: 63 pruebas backend y build frontend correctos.
-- El PR #1 agrega gobernanza, CI y escaneo de secretos; sus checks están verdes
-  y espera autorización humana de merge.
-- El roadmap indica después G-01/G-02 de Alembic y 23-P1, UI de topología.
+- El PR #3 completa G-01/G-02 de Alembic y espera aprobación por Telegram.
+- El siguiente issue autónomo es #4: 23-P1, UI de topología.
 
 ## Comandos conversacionales
 

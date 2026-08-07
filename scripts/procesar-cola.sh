@@ -43,8 +43,10 @@ reconciliar_ci() {
     fallidos="$(jq -r '[.[0].statusCheckRollup[] | select(.conclusion != "SUCCESS" and .conclusion != "NEUTRAL" and .conclusion != "SKIPPED")] | length' <<<"$pr_json" 2>/dev/null || echo 1)"
     if (( fallidos == 0 )); then
       ai_estado_guardar "$issue" ci_success "$intento" "verificaciones de GitHub completadas"
+      ai_notificar_pr "$issue" verde
     elif [[ "$estado" != ci_failed ]]; then
       ai_estado_guardar "$issue" ci_failed "$intento" "verificaciones de GitHub fallidas"
+      ai_notificar_pr "$issue" rojo
     fi
   done
 }
