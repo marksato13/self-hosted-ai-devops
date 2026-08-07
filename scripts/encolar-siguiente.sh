@@ -32,6 +32,10 @@ mapfile -t candidatos < <(gh issue list --repo "$OWNER/$REPO" --state open \
   --label 'agente:lista' --limit 100 --json number,labels \
   --jq '[.[] | select([.labels[].name] | index("bloqueada") | not)] | sort_by(.number) | .[].number')
 for issue in "${candidatos[@]}"; do
+  # Un issue que agotó reintentos queda bloqueado hasta una solicitud humana
+  # explícita (/i N); evita bucles de Telegram cuando el proveedor está caído.
+  estado_file="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}/issues/$issue/state.json"
+  [[ ! -f "$estado_file" ]] || [[ "$(jq -r '.estado // empty' "$estado_file")" != failed ]] || continue
   if AI_QUEUE_DIR="$QUEUE" "$REPO_RAIZ/scripts/solicitar-issue.sh" "$issue" >/dev/null 2>&1; then
     ai_estado_guardar "$issue" selected 0 "seleccionado por el ciclo autónomo"
     echo "Issue #$issue seleccionado automáticamente."
