@@ -61,6 +61,8 @@ export default definePluginEntry({
     v ? { error: "Uso: /agentes" } : { accion: "agentes" });
   comando(api, "trabajo", "Atajo: ver agentes y progreso", (v) =>
     v ? { error: "Uso: /trabajo" } : { accion: "agentes" });
+  comando(api, "salud", "Ver salud del entorno y dependencias", (v) =>
+    v ? { error: "Uso: /salud" } : { accion: "salud" });
   comando(api, "sig", "Procesar el siguiente issue", (v) =>
     v ? { error: "Uso: /sig" } : { accion: "siguiente" });
   comando(api, "pausa", "Pausar admisión de tareas", (v) =>

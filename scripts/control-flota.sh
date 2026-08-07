@@ -27,7 +27,7 @@ fi
 }
 
 case "$accion" in
-  estado|agentes|siguiente|detener|reanudar|ayuda|aprobar-todo)
+  estado|agentes|salud|siguiente|detener|reanudar|ayuda|aprobar-todo)
     [[ -z "$valor" ]] || { echo "La acción $accion no admite argumentos." >&2; exit 64; }
     ;;
   issue|aprobar|rechazar)

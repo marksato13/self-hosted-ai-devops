@@ -132,6 +132,7 @@ comandos largos y mantienen la allowlist y la confirmación en dos pasos.
 | `/todo` | `/aprobar_todo` |
 | `/estado` | `/flota estado` |
 | `/agentes` o `/trabajo` | Estado de cada rol, fase, worktree y PR |
+| `/salud` | Estado de OpenClaw, OmniRoute, NinjaSec, versiones y dependencias |
 | `/sig` | `/flota siguiente` |
 | `/i 12` | `/flota issue 12` |
 | `/error` o `/error 12` | `/flota errores` o `/flota errores 12` |

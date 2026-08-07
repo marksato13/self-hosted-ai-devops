@@ -84,6 +84,10 @@ procesar() {
       resumen="$($REPO_RAIZ/scripts/estado-agentes.sh 2>/dev/null || echo 'No se pudo consultar el estado de los agentes.')"
       notificar "$actor" "$resumen"
       ;;
+    salud)
+      resumen="$($REPO_RAIZ/scripts/estado-entorno.sh 2>/dev/null || echo 'No se pudo consultar el entorno.')"
+      notificar "$actor" "$resumen"
+      ;;
     errores)
       if [[ -n "$valor" ]]; then
         if [[ -f "$COLA/fallidas/issue-${valor}.exit" ]]; then
