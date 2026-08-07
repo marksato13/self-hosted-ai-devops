@@ -48,6 +48,25 @@ export default definePluginEntry({
     NONCE.test(v) ? { accion: "confirmar", valor: v } : { error: "Uso: /confirmar CODIGO" });
   comando(api, "aprobar_todo", "Preparar la aprobación del lote actual", (v) =>
     v ? { error: "Uso: /aprobar_todo" } : { accion: "aprobar-todo" });
+  // Atajos del menú: conservan la misma validación y confirmación.
+  comando(api, "a", "Atajo: aprobar un PR", (v) =>
+    NUMERO.test(v) ? { accion: "aprobar", valor: v } : { error: "Uso: /a NUMERO_PR" });
+  comando(api, "c", "Atajo: confirmar con código", (v) =>
+    NONCE.test(v) ? { accion: "confirmar", valor: v } : { error: "Uso: /c CODIGO" });
+  comando(api, "todo", "Atajo: aprobar el lote actual", (v) =>
+    v ? { error: "Uso: /todo" } : { accion: "aprobar-todo" });
+  comando(api, "estado", "Ver estado de la flota", (v) =>
+    v ? { error: "Uso: /estado" } : { accion: "estado" });
+  comando(api, "sig", "Procesar el siguiente issue", (v) =>
+    v ? { error: "Uso: /sig" } : { accion: "siguiente" });
+  comando(api, "pausa", "Pausar admisión de tareas", (v) =>
+    v ? { error: "Uso: /pausa" } : { accion: "detener" });
+  comando(api, "seguir", "Reanudar la flota", (v) =>
+    v ? { error: "Uso: /seguir" } : { accion: "reanudar" });
+  comando(api, "i", "Procesar un issue concreto", (v) =>
+    NUMERO.test(v) ? { accion: "issue", valor: v } : { error: "Uso: /i NUMERO_ISSUE" });
+  comando(api, "error", "Ver errores recientes", (v) =>
+    (!v || NUMERO.test(v)) ? { accion: "errores", valor: v } : { error: "Uso: /error [NUMERO_ISSUE]" });
   comando(api, "flota", "Controlar o consultar la flota", (v) => {
     const [accion = "ayuda", valor = "", extra] = v.split(/\s+/);
     if (["estado", "siguiente", "detener", "reanudar", "ayuda"].includes(accion) && !valor)
