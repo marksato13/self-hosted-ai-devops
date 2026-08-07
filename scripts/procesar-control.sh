@@ -80,6 +80,10 @@ procesar() {
       notificar "$actor" 'Comandos: estado, siguiente, issue N, aprobar PR, aprobar-todo, confirmar CÓDIGO, rechazar PR, detener, reanudar y errores [N]. No existe shell libre.'
       ;;
     estado) notificar "$actor" "$(estado_flota)" ;;
+    agentes)
+      resumen="$($REPO_RAIZ/scripts/estado-agentes.sh 2>/dev/null || echo 'No se pudo consultar el estado de los agentes.')"
+      notificar "$actor" "$resumen"
+      ;;
     errores)
       if [[ -n "$valor" ]]; then
         if [[ -f "$COLA/fallidas/issue-${valor}.exit" ]]; then

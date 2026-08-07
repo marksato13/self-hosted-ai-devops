@@ -57,6 +57,10 @@ export default definePluginEntry({
     v ? { error: "Uso: /todo" } : { accion: "aprobar-todo" });
   comando(api, "estado", "Ver estado de la flota", (v) =>
     v ? { error: "Uso: /estado" } : { accion: "estado" });
+  comando(api, "agentes", "Ver qué agentes trabajan y su fase", (v) =>
+    v ? { error: "Uso: /agentes" } : { accion: "agentes" });
+  comando(api, "trabajo", "Atajo: ver agentes y progreso", (v) =>
+    v ? { error: "Uso: /trabajo" } : { accion: "agentes" });
   comando(api, "sig", "Procesar el siguiente issue", (v) =>
     v ? { error: "Uso: /sig" } : { accion: "siguiente" });
   comando(api, "pausa", "Pausar admisión de tareas", (v) =>
