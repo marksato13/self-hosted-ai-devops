@@ -123,18 +123,35 @@ for agente in "${AGENTES[@]}"; do
     "Implementa esta subtarea y crea un commit en tu rama.\nDescripción: " +
     .descripcion + "\nCriterio de aceptación: " + .criterio_aceptacion' \
     "$ESTADO/plan.json" > "$ESTADO/prompt-${agente}.txt"
+  case "$agente" in
+    backend) modelo_agente="${CODEX_BACKEND_MODEL:-cx/gpt-5.6-sol}" ;;
+    tests) modelo_agente="${CODEX_TESTS_MODEL:-cx/gpt-5.6-terra}" ;;
+    docs) modelo_agente="${CODEX_DOCS_MODEL:-cx/gpt-5.5}" ;;
+    *) modelo_agente="${CODEX_AGENT_MODEL:-cx/gpt-5.6-terra}" ;;
+  esac
   (
-    timeout "$TIMEOUT" codex exec -p "$perfil" -s workspace-write -C "$wt" \
+    timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo_agente" -s "$(codex_sandbox workspace-write)" -C "$wt" \
       -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
   ) >"$ESTADO/${agente}.log" 2>&1 &
   pids+=("$!")
 done
 
 fallos=0
+fallos_proveedor=0
 for pid in "${pids[@]}"; do
   wait "$pid" || ((fallos+=1))
 done
-[[ $fallos -eq 0 ]] || { echo "$fallos agentes fallaron." >&2; exit 70; }
+if (( fallos > 0 )); then
+  for agente in "${AGENTES[@]}"; do
+    grep -qE '429|rate.limit|Too Many Requests' "$ESTADO/${agente}.log" 2>/dev/null && ((fallos_proveedor+=1)) || true
+  done
+  if (( fallos_proveedor == fallos )); then
+    echo "Los agentes no pudieron iniciar por límite temporal del proveedor." >&2
+    exit 75
+  fi
+  echo "$fallos agentes fallaron." >&2
+  exit 70
+fi
 
 ai_estado_guardar "$ISSUE" integrating "$INTENTO" "integrando ramas"
 (cd "$TARGET_REPO" && "$REPO_RAIZ/scripts/integrar.sh" "$ISSUE")
