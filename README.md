@@ -4,9 +4,22 @@ Flota personal de agentes de IA, **autohospedada**, comandada desde el celular p
 
 Combina un modelo caro para **planificar y revisar** con modelos chinos baratos o gratuitos para **ejecutar**, de modo que el volumen de tokens se lo lleven los modelos económicos.
 
-> **Estado:** infraestructura y runner persistente implementados · control y
-> aprobación por Telegram pendientes de verificación integral · última
-> actualización 2026-08-07
+**Para qué existe:** para que avanzar un repositorio no dependa de sentarse
+a programar. Vos etiquetás un issue en GitHub, y la flota — corriendo sola en
+hardware propio, sin nube — lo convierte en un Pull Request revisado antes de
+que termines de guardar el celular. Vos solo aprobás.
+
+> **Estado:** flota autónoma corriendo contra el repositorio objetivo
+> **NinjaSec Platform** · allowlist de Telegram verificada desde una segunda
+> cuenta · el mecanismo completo (issue → 3 agentes → PR → merge) ya produjo
+> un PR real y fusionado (#3, issue #2) · **la confirmación de que ese ciclo
+> se disparó y aprobó por Telegram de punta a punta (T044) sigue pendiente
+> de verificación manual** — ver [ESTADO.md](ESTADO.md). Última actualización
+> 2026-08-08.
+>
+> **¿Ya está andando y solo querés usarlo?** Empezá por el
+> **[manual de uso](docs/manual.md)**, no por esta página. Lo que sigue acá
+> abajo es arquitectura y cómo instalarlo desde cero.
 
 ---
 
@@ -111,7 +124,8 @@ Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelo
 
 | Documento | Contenido |
 |---|---|
-| [docs/arranque.md](docs/arranque.md) | **Empezá acá** — los comandos manuales hasta que Codex toma el control |
+| [docs/manual.md](docs/manual.md) | **Ya está instalado y querés usarlo:** empezá acá — comandos, flujos típicos y qué hacer cuando algo falla |
+| [docs/arranque.md](docs/arranque.md) | **Vas a instalarlo:** empezá acá — los comandos manuales hasta que Codex toma el control |
 | [docs/plan-ejecucion.md](docs/plan-ejecucion.md) | **63 tareas atómicas** con verificación — para que un agente lo implemente |
 | [ESTADO.md](ESTADO.md) | Avance de la implementación, tarea por tarea |
 | [docs/instalacion.md](docs/instalacion.md) | El mismo camino en 10 fases, explicado para leer |
