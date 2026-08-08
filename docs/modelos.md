@@ -7,34 +7,43 @@ credenciales permanecen cifradas en OmniRoute y nunca se documentan.
 
 ## Catálogo elegido para desarrollo
 
-| Prioridad | Modelo o ruta | Uso | Estado verificado | Costo adicional |
+| Prioridad | Modelo o ruta | Uso | Estado verificado al 2026-08-08 | Costo adicional |
 |---|---|---|---|---|
-| 1 | `cx/gpt-5.6-sol` | Implementación y revisión exigente | Codex OAuth activo; prueba correcta | Cubierto por ChatGPT Plus; sujeto a sus límites |
-| 2 | `aug/sonnet5-high` | Arquitectura, implementación y revisión | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
-| 3 | `aug/sonnet5-500k` | Contextos excepcionalmente grandes | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
-| 4 | `oc/big-pickle` | Desarrollo gratuito y fallback | OpenCode Free probado | USD 0 según la ruta gratuita |
-| 5 | `oc/deepseek-v4-flash-free` | Desarrollo gratuito | Anunciado por OpenCode Free; pendiente de prueba individual | USD 0 según la ruta gratuita |
-| 6 | `deepseek/deepseek-v4-pro` | Código y razonamiento, solo bajo petición | Conexión activa; no se hizo prueba pagada | API de pago |
-| 7 | Kimi/Moonshot | Contexto largo y alternativa de código | Conexión activa; modelo exacto y prueba pendientes | API de pago |
+| 1 | `oc/big-pickle` | Ejecución por defecto de los cuatro roles | **Probado**, incluso tras saturar el límite de conexiones de OmniRoute | USD 0 |
+| 2 | `oc/deepseek-v4-flash-free` | Fallback gratuito si `big-pickle` se satura | **Probado** en llamadas cortas; **bug conocido** en sesiones largas de tool-calling (`400 Duplicate value for 'tool_call_id'`, ver ESTADO.md) | USD 0 |
+| 3 | `cx/gpt-5.6-sol` / `-terra` / `5.5` | Último recurso si ambas rutas gratis fallan | Codex OAuth activo, pero **cuota de la cuenta agotada hasta el 12/08/2026** | Cubierto por ChatGPT Plus; sujeto a sus límites |
+| 4 | `aug/sonnet5-high` / `aug/sonnet5-500k` | Arquitectura o contexto excepcionalmente grande | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
+| 5 | `deepseek/deepseek-v4-pro` | Código y razonamiento, solo bajo petición | **Sin credenciales activas en OmniRoute** — `404 No active credentials for provider: deepseek` pese a lo que decía este documento antes | API de pago, hoy inutilizable hasta cargar la clave |
+| 6 | `moonshot/kimi-k2.7-code` / `kimi-k2.6` | Contexto largo y alternativa de código | Conexión activa, pero **cuenta suspendida por falta de saldo** (`account ... is suspended due to insufficient balance`) | API de pago, hoy inutilizable hasta recargar |
 
 “Sonnet 5” significa los identificadores que anuncia esta instalación de
 OmniRoute bajo el proveedor Auggie. Que un modelo aparezca en `/v1/models` no
 demuestra que exista una cuenta habilitada ni que pueda usarse gratis. No se
 incorpora al fallback automático hasta completar una prueba y revisar costos.
 
+Prioridades 5 y 6 requieren acción humana fuera de este repositorio —
+recargar saldo en la consola de Moonshot, cargar una clave de DeepSeek en
+OmniRoute — antes de poder usarse. Mientras tanto no forman parte de ningún
+fallback automático (regla 5 más abajo).
+
 ## Rutas por agente
 
-| Agente | Perfil | Ruta OmniRoute | Costo adicional |
-|---|---|---|---|
-| Planificador | `planner` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
-| Backend | `backend` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
-| Tests | `tester` | `auto/coding:free` | USD 0 |
-| Docs | `docs` | `auto/coding:free` | USD 0 |
-| Revisor | `reviewer` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
-| Diseñador | `designer` | `auto/multimodal:free` | USD 0 |
+`scripts/ejecutar-issue.sh` decide el modelo real de cada rol — el perfil de
+`~/.codex/*.config.toml` solo define el valor por defecto si se invoca a
+mano. Ver **[ADR-024](decisiones.md#adr-024--orden-de-modelos-por-rol-gratis-primero-codex-al-final)**.
 
-Los alias `auto` se resuelven dinámicamente según salud, cuota, latencia,
-capacidad y tipo de tarea. El modelo concreto puede cambiar entre peticiones.
+| Agente | Perfil | Orden real (variable de override) | Costo adicional |
+|---|---|---|---|
+| Planificador | `planner` | `oc/big-pickle` → `oc/deepseek-v4-flash-free` → `cx/gpt-5.6-sol` (`CODEX_PLANNER_MODEL`/`_FALLBACK_MODEL`/`_LAST_RESORT_MODEL`) | USD 0 salvo agotar ambas rutas gratis |
+| Backend | `backend` | igual orden (`CODEX_BACKEND_*`) | USD 0 salvo agotar ambas rutas gratis |
+| Tests | `tester` | igual orden, último recurso `cx/gpt-5.6-terra` (`CODEX_TESTS_*`) | USD 0 salvo agotar ambas rutas gratis |
+| Docs | `docs` | igual orden, último recurso `cx/gpt-5.5` (`CODEX_DOCS_*`) | USD 0 salvo agotar ambas rutas gratis |
+| Revisor | `reviewer` | perfil `auto/coding` (sin override propio todavía) | USD 0; Codex Plus o fallback gratuito |
+| Diseñador | `designer` | perfil `auto/multimodal:free` | USD 0 |
+
+Cada rol prueba primero la ruta gratuita; si responde `429`, pasa a la
+siguiente de la lista. Un fallo que no sea `429` (código roto, prueba que no
+pasa) corta el intento ahí — no se enmascara probando otro modelo.
 
 ## Qué significa gratuito
 

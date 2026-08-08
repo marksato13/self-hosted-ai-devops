@@ -67,15 +67,22 @@ PROMPT_PLAN="$ESTADO/prompt-plan.txt"
   jq . "$ESTADO/issue.json"
 } > "$PROMPT_PLAN"
 
-PLANNER_MODEL="${CODEX_PLANNER_MODEL:-cx/gpt-5.6-sol}"
-PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-cx/gpt-5.6-terra}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.5}")
+# Orden pensado para no depender de Codex/ChatGPT: rutas gratuitas de
+# OmniRoute primero, Codex solo como último recurso si hay cuota. Ver
+# docs/decisiones.md — ADR-024.
+PLANNER_MODEL="${CODEX_PLANNER_MODEL:-oc/big-pickle}"
+PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}")
 planner_ok=0
 planner_rate_limited=0
 for modelo in "${PLANNER_MODELS[@]}"; do
   [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
   planner_log="$ESTADO/planner-${modelo//[^a-zA-Z0-9]/_}.log"
+  # Sin --output-schema: las rutas gratuitas de OmniRoute devuelven
+  # "response_format type is unavailable now" con salida JSON estructurada
+  # (confirmado 2026-08-08, ver ADR-024). El prompt ya pide JSON estricto y
+  # se valida más abajo; si el modelo lo envuelve en markdown, se limpia
+  # antes de validar.
   if timeout "$TIMEOUT" codex exec -p planner -m "$modelo" -s "$(codex_sandbox read-only)" -C "$TARGET_REPO" \
-      --output-schema "$REPO_RAIZ/config/plan.schema.json" \
       -o "$ESTADO/plan.json" - < "$PROMPT_PLAN" >"$planner_log" 2>&1; then
     planner_ok=1
     break
@@ -95,6 +102,12 @@ done
   echo "El planificador no pudo responder con los modelos configurados." >&2
   exit 1
 }
+if ! jq -e . "$ESTADO/plan.json" >/dev/null 2>&1; then
+  # Sin --output-schema algunos modelos envuelven la respuesta en una
+  # cerca de markdown pese a la instrucción; se quita solo si es la
+  # primera y/o última línea, nunca en medio del contenido.
+  sed -i -e '1{/^```/d}' -e '$ {/^```/d}' "$ESTADO/plan.json"
+fi
 jq -e . "$ESTADO/plan.json" >/dev/null
 jq -e '
   (.resumen | type == "string" and length > 0) and
@@ -118,10 +131,43 @@ ai_notificar_agentes "$ISSUE" "$AGENTES_MENSAJE"
 AGENT_PARALLELISM="${AI_AGENT_CONCURRENCY:-1}"
 [[ "$AGENT_PARALLELISM" =~ ^[1-9][0-9]*$ ]] || AGENT_PARALLELISM=1
 pids=()
+# Prueba cada modelo de la lista en orden; pasa al siguiente solo si el
+# fallo es un límite temporal del proveedor (429). Un fallo real (código,
+# pruebas, etc.) corta la lista y se reporta tal cual — no se enmascara
+# reintentando con otro modelo.
 ejecutar_agente() {
-  local agente="$1" perfil="$2" wt="$3" modelo_agente="$4"
-  timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo_agente" -s "$(codex_sandbox workspace-write)" -C "$wt" \
-    -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
+  local agente="$1" perfil="$2" wt="$3"; shift 3
+  local modelos=("$@") modelo intento_log motivo_log intento_out rc
+  intento_log="$ESTADO/${agente}.log"
+  motivo_log="$ESTADO/${agente}.motivo"
+  : >"$intento_log"
+  rm -f "$motivo_log"
+  for modelo in "${modelos[@]}"; do
+    [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
+    intento_out="$(mktemp)"
+    {
+      echo "── $agente con $modelo ──"
+      timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo" -s "$(codex_sandbox workspace-write)" -C "$wt" \
+        -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
+    } >"$intento_out" 2>&1
+    rc=$?
+    cat "$intento_out" >>"$intento_log"
+    if (( rc == 0 )); then
+      rm -f "$intento_out"
+      return 0
+    fi
+    # Solo se compara la salida DE ESTE intento: un 429 de un modelo
+    # anterior no debe disfrazar un fallo real del siguiente.
+    if ! grep -qE '429|rate.limit|Too Many Requests' "$intento_out"; then
+      rm -f "$intento_out"
+      echo "real" >"$motivo_log"
+      return 1
+    fi
+    rm -f "$intento_out"
+    echo "$agente saturado con $modelo; probando el siguiente modelo." >&2
+  done
+  echo "proveedor" >"$motivo_log"
+  return 1
 }
 for agente in "${AGENTES[@]}"; do
   perfil="$agente"; [[ "$agente" == tests ]] && perfil=tester
@@ -130,16 +176,18 @@ for agente in "${AGENTES[@]}"; do
     "Implementa esta subtarea y crea un commit en tu rama.\nDescripción: " +
     .descripcion + "\nCriterio de aceptación: " + .criterio_aceptacion' \
     "$ESTADO/plan.json" > "$ESTADO/prompt-${agente}.txt"
+  # Mismo orden que el planificador: gratis primero, Codex solo si hay
+  # cuota y todo lo demás falló. Ver docs/decisiones.md — ADR-024.
   case "$agente" in
-    backend) modelo_agente="${CODEX_BACKEND_MODEL:-cx/gpt-5.6-sol}" ;;
-    tests) modelo_agente="${CODEX_TESTS_MODEL:-cx/gpt-5.6-terra}" ;;
-    docs) modelo_agente="${CODEX_DOCS_MODEL:-cx/gpt-5.5}" ;;
-    *) modelo_agente="${CODEX_AGENT_MODEL:-cx/gpt-5.6-terra}" ;;
+    backend) modelos_agente=("${CODEX_BACKEND_MODEL:-oc/big-pickle}" "${CODEX_BACKEND_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_BACKEND_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}") ;;
+    tests) modelos_agente=("${CODEX_TESTS_MODEL:-oc/big-pickle}" "${CODEX_TESTS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_TESTS_LAST_RESORT_MODEL:-cx/gpt-5.6-terra}") ;;
+    docs) modelos_agente=("${CODEX_DOCS_MODEL:-oc/big-pickle}" "${CODEX_DOCS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_DOCS_LAST_RESORT_MODEL:-cx/gpt-5.5}") ;;
+    *) modelos_agente=("${CODEX_AGENT_MODEL:-oc/big-pickle}" "oc/deepseek-v4-flash-free" "cx/gpt-5.6-terra") ;;
   esac
   if (( AGENT_PARALLELISM == 1 )); then
-    ejecutar_agente "$agente" "$perfil" "$wt" "$modelo_agente" >"$ESTADO/${agente}.log" 2>&1 || pids+=("failed:$agente")
+    ejecutar_agente "$agente" "$perfil" "$wt" "${modelos_agente[@]}" || pids+=("failed:$agente")
   else
-    ( ejecutar_agente "$agente" "$perfil" "$wt" "$modelo_agente" ) >"$ESTADO/${agente}.log" 2>&1 &
+    ( ejecutar_agente "$agente" "$perfil" "$wt" "${modelos_agente[@]}" ) &
     pids+=("$!")
   fi
 done
@@ -155,7 +203,7 @@ for pid in "${pids[@]}"; do
 done
 if (( fallos > 0 )); then
   for agente in "${AGENTES[@]}"; do
-    grep -qE '429|rate.limit|Too Many Requests' "$ESTADO/${agente}.log" 2>/dev/null && ((fallos_proveedor+=1)) || true
+    [[ "$(cat "$ESTADO/${agente}.motivo" 2>/dev/null)" == "proveedor" ]] && ((fallos_proveedor+=1)) || true
   done
   if (( fallos_proveedor == fallos )); then
     echo "Los agentes no pudieron iniciar por límite temporal del proveedor." >&2
