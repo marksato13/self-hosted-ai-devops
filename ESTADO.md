@@ -4,9 +4,14 @@ Registro de avance del [plan de ejecución](docs/plan-ejecucion.md). Se actualiz
 
 **Para el agente:** este archivo es tu punto de reanudación. Al empezar una sesión, leelo primero: la última tarea marcada indica dónde continuar. Al terminar una tarea verificada, marcá su casilla y anotá la fecha. Si una tarea falla dos veces, marcala 🔴 y anotá el error en «Incidencias».
 
-**Estado general:** OmniRoute desplegado, publicado solo en la tailnet, Codex
-OAuth y OpenCode Free verificados. Kimi y DeepSeek están conectados como rutas
-pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
+**Estado general:** ciclo autónomo completo probado de punta a punta contra
+NinjaSec Platform (issue #4, 2026-08-08): plan → 3 agentes → PR → CI verde →
+aprobación por Telegram → merge, sin intervención fuera del bot. OmniRoute
+desplegado, publicado solo en la tailnet. Kimi conectado pero **suspendido
+por saldo**; DeepSeek pago **sin credenciales**; Gemini y un modelo local
+(Ollama) conectados como rutas adicionales, no forman parte del fallback
+automático (ver ADR-024/025/026). Falta repasar T045 (checklist de
+seguridad) y las tareas 👤 restantes de la Fase 9 (T038/T039).
 
 ---
 
@@ -25,7 +30,7 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 7 · OpenClaw | T024–T027 | ✅ Completa |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
 | 9 · GitHub | T032–T039 | 🟡 En curso · NinjaSec incorporado; falta snapshot y prueba móvil del PR |
-| 10 · La flota | T040–T045 | 🟡 En curso · agentes, PR y worktrees verificados (T040–T043); falta confirmar ciclo completo por Telegram (T044) y repasar checklist de seguridad (T045) |
+| 10 · La flota | T040–T045 | 🟡 En curso · ciclo completo por Telegram probado de punta a punta con un caso real (T040–T044); falta repasar el checklist de seguridad (T045) |
 | 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
 Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
@@ -105,7 +110,7 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T041 🤖 Tres agentes en paralelo, un commit cada uno — 2026-08-07
 - [x] T042 🤖 `integrar.sh` abre un PR en borrador — 2026-08-07
 - [x] T043 ⚙️ PR aprobado y worktrees limpiados — 2026-08-08: PR #3 (issue #2) aprobado y mergeado 2026-08-07; worktrees huérfanos limpiados 2026-08-08 (ver Incidencias)
-- [ ] T044 🤖 Ciclo completo conectado a OpenClaw
+- [x] T044 🤖 Ciclo completo conectado a OpenClaw — 2026-08-08: issue #4 de ninjasec-platform, ciclo real de punta a punta (plan → 3 agentes → PR #5 → CI verde → aprobación por Telegram → merge), evento `"PR #5 fusionado con confirmación humana"` a las 23:29
 - [ ] T045 👤 Checklist de seguridad repasado
 
 ### Fase 11 — Bucle visual *(solo si el proyecto tiene interfaz web)*
