@@ -9,9 +9,9 @@ credenciales permanecen cifradas en OmniRoute y nunca se documentan.
 
 | Prioridad | Modelo o ruta | Uso | Estado verificado al 2026-08-08 | Costo adicional |
 |---|---|---|---|---|
-| 1 | `oc/big-pickle` | Ejecución por defecto de los cuatro roles | **Probado**, incluso tras saturar el límite de conexiones de OmniRoute | USD 0 |
-| 2 | `oc/deepseek-v4-flash-free` | Fallback gratuito si `big-pickle` se satura | **Probado** en llamadas cortas; **bug conocido** en sesiones largas de tool-calling (`400 Duplicate value for 'tool_call_id'`, ver ESTADO.md) | USD 0 |
-| 3 | `cx/gpt-5.6-sol` / `-terra` / `5.5` | Último recurso si ambas rutas gratis fallan | Codex OAuth activo, pero **cuota de la cuenta agotada hasta el 12/08/2026** | Cubierto por ChatGPT Plus; sujeto a sus límites |
+| 1 | `oc/big-pickle` | Ejecución por defecto de los cuatro roles | **Probado**; **bug conocido** de tool-calling (`400 Duplicate value for 'tool_call_id'`) — puede aparecer temprano (mensaje 5) o tarde, no es exclusivo de sesiones largas, ver ADR-024/ADR-026 | USD 0 |
+| 2 | `oc/deepseek-v4-flash-free` | Fallback gratuito si `big-pickle` se satura | Mismo bug de `tool_call_id` que `big-pickle` — no es específico de un modelo, es de la capa `opencode` de OmniRoute | USD 0 |
+| 3 | `cx/gpt-5.6-sol` / `-terra` / `5.5` | Último recurso si ambas rutas gratis fallan, o forzado a mano cuando `oc/*` rompe con el bug de `tool_call_id` | Codex OAuth activo y **funcionando** (verificado 2026-08-08 21:56 — la cuota volvió antes del 12/08 anunciado). Ver ADR-026: un `429` en `cx/*` puede ser el límite de conexiones de OmniRoute, no la cuota real — revisar `docker logs omniroute` antes de asumir cuota agotada | Cubierto por ChatGPT Plus; sujeto a sus límites |
 | 4 | `aug/sonnet5-high` / `aug/sonnet5-500k` | Arquitectura o contexto excepcionalmente grande | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
 | 5 | `deepseek/deepseek-v4-pro` | Código y razonamiento, solo bajo petición | **Sin credenciales activas en OmniRoute** — `404 No active credentials for provider: deepseek` pese a lo que decía este documento antes | API de pago, hoy inutilizable hasta cargar la clave |
 | 6 | `moonshot/kimi-k2.7-code` / `kimi-k2.6` | Contexto largo y alternativa de código | Conexión activa, pero **cuenta suspendida por falta de saldo** (`account ... is suspended due to insufficient balance`) | API de pago, hoy inutilizable hasta recargar |
