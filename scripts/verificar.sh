@@ -145,7 +145,10 @@ fase9() {
   echo "── FASE 9 · GitHub y guardarraíles ──"
   chk T032 "Credencial de GitHub disponible" '[[ -n "${GITHUB_TOKEN:-}" ]] || gh auth status'
   chk T033 "gh autenticado"                'gh auth status'
-  chk T034 "main protegida"                'gh api "repos/${GITHUB_OWNER:-marksato13}/${GITHUB_REPO:-self-hosted-ai-devops}/branches/main/protection"'
+  # Hardcodeado a propósito: $GITHUB_OWNER/$GITHUB_REPO identifican el
+  # repositorio objetivo del runner (p. ej. ninjasec-platform), no esta
+  # plataforma. T034 protege siempre la rama main de este repositorio.
+  chk T034 "main protegida"                'gh api "repos/marksato13/self-hosted-ai-devops/branches/main/protection"'
   chk T035 "gitleaks instalado"            'gitleaks version'
   chk T035 "hook de pre-commit instalado"  'test -f "$HOME/self-hosted-ai-devops/.git/hooks/pre-commit"'
   chk T036 "gitleaks detecta un secreto"   'd="$(mktemp -d)"; valor="sk-proj-$(openssl rand -hex 32)"; printf "OPENAI_API_KEY=%s\n" "$valor" > "$d/prueba.txt"; ! gitleaks detect --no-git --source "$d" --no-banner --redact'
