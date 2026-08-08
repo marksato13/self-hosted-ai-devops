@@ -25,7 +25,7 @@ pagadas opcionales; sus pruebas se mantienen pendientes para evitar consumo.
 | 7 · OpenClaw | T024–T027 | ✅ Completa |
 | 8 · Codex CLI | T028–T031 | ✅ Completa |
 | 9 · GitHub | T032–T039 | 🟡 En curso · NinjaSec incorporado; falta snapshot y prueba móvil del PR |
-| 10 · La flota | T040–T045 | 🟡 En curso · agentes y PR verificados; falta ciclo Telegram |
+| 10 · La flota | T040–T045 | 🟡 En curso · agentes, PR y worktrees verificados (T040–T043); falta confirmar ciclo completo por Telegram (T044) y repasar checklist de seguridad (T045) |
 | 11 · Bucle visual | T046–T058 | ⬜ Sin empezar · *opcional* |
 
 Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
@@ -104,7 +104,7 @@ Leyenda: ⬜ sin empezar · 🟡 en curso · ✅ completa · 🔴 bloqueada
 - [x] T040 🤖 Worktrees creados a mano — 2026-08-07
 - [x] T041 🤖 Tres agentes en paralelo, un commit cada uno — 2026-08-07
 - [x] T042 🤖 `integrar.sh` abre un PR en borrador — 2026-08-07
-- [ ] T043 ⚙️ PR aprobado y worktrees limpiados
+- [x] T043 ⚙️ PR aprobado y worktrees limpiados — 2026-08-08: PR #3 (issue #2) aprobado y mergeado 2026-08-07; worktrees huérfanos limpiados 2026-08-08 (ver Incidencias)
 - [ ] T044 🤖 Ciclo completo conectado a OpenClaw
 - [ ] T045 👤 Checklist de seguridad repasado
 
@@ -144,7 +144,9 @@ Anotar acá lo que falló dos veces y cómo se resolvió. Sirve para no repetir 
 
 | Fecha | Tarea | Qué pasó | Cómo se resolvió |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-08-08 | Issue #4 (ninjasec-platform) | El planner (perfiles `cx_gpt_5_5`, `cx_gpt_5_6_terra`, `cx_gpt_5_6_sol`) agotó el límite de reintentos con `429 Too Many Requests` en los tres perfiles de respaldo — la cuota de la cuenta ChatGPT/Codex quedó agotada hasta el 12/08/2026. El runner bloqueó el reencolado automático (comportamiento esperado) y quedó en `~/.local/state/ai-devops/queue/fallidas/issue-4.failed` tras el segundo intento (2026-08-07 22:56 y 2026-08-08 03:15). | Worktrees `issue-4-backend/docs/tests` limpiados con `scripts/limpiar-worktrees.sh 4` (sin commits, nada que perder). El issue #4 queda **sin reencolar** hasta que la cuota de Codex se reponga el 12/08/2026; reencolar manualmente después con `scripts/solicitar-issue.sh` o `encolar-siguiente.sh` cuando corresponda. |
+| 2026-08-08 | T034 (`scripts/verificar.sh`) | El chequeo de «main protegida» usaba `$GITHUB_OWNER/$GITHUB_REPO`, pero en este `.env` esas variables apuntan al repo objetivo (`ninjasec-platform`, privado) para que el runner abra PRs ahí — no a la plataforma. La verificación de protección de rama sobre un repo privado sin plan Pro/Team devuelve 403, así que T034 reportaba FALLA aunque `self-hosted-ai-devops/main` sí está protegida (confirmado a mano: `enforce_admins=true`, check requerido `scripts-y-configuracion`). | **Resuelto:** `scripts/verificar.sh` ahora hardcodea `marksato13/self-hosted-ai-devops` en el chequeo de T034, independiente de las variables del repo objetivo. `./scripts/verificar.sh all` pasa de 51 OK/11 FALLAN a 53 OK/9 FALLAN (los 9 restantes son la Fase 11, bucle visual opcional, nunca iniciada). Nota aparte: `ninjasec-platform` al ser privado no puede verificar/fijar protección de rama por API sin plan GitHub Pro/Team — limitación de plan, no de código. |
+| 2026-08-08 | Worktrees huérfanos adicionales | Además de issue-4, se encontraron worktrees ya mergeados sin limpiar: `issue-2-*` (PR #3 mergeado hace 1 día) en `ninjasec-platform`, y `infra-docs/runner/telegram/tests` (ramas `*-ciclo-*` ya mergeadas en `feat/robustez-plataforma`) en esta plataforma. Un directorio `issue-2-backend` había quedado corrupto (sin `.git`, con archivos `root:root` de un `.pytest_cache` escrito desde un contenedor). | Limpiados todos: `limpiar-worktrees.sh 2`, `git worktree remove` manual para los `infra-*`, y un contenedor Alpine descartable (`docker run --rm -v ... alpine rm -rf ...`) para los archivos `root:root` que `rm` normal no podía borrar por permisos. |
 
 ---
 
