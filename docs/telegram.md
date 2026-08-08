@@ -1,11 +1,14 @@
 # Telegram — manual de operación de la flota
 
+> Referencia exhaustiva de comandos y mensajes. Para una guía más corta con
+> flujos típicos y troubleshooting, ver **[docs/manual.md](manual.md)**.
+
 Telegram es el panel de control de Nexo. El usuario recibe allí los avances,
 decide el nivel de autonomía y atiende únicamente las excepciones. GitHub
 continúa siendo la fuente de verdad para issues, ramas, Pull Requests (PR),
 checks y merges.
 
-> **Estado al 2026-08-07:** el canal con allowlist, la cola, el runner y la
+> **Estado al 2026-08-08:** el canal con allowlist, la cola, el runner y la
 > aprobación individual en dos fases están instalados. Los mensajes
 > automáticos y `aprobar todo` forman el contrato de la ampliación actual.
 > Deben considerarse **pendientes de validación
@@ -52,14 +55,33 @@ Escribir al bot desde la cuenta incluida en `TELEGRAM_ALLOWED_CHAT_IDS`:
 /flota estado
 ```
 
-Respuesta esperada a `ayuda`:
+Respuesta esperada a `ayuda` (idéntica a la que devuelve `scripts/procesar-control.sh`):
 
 ```text
 Nexo · control de la flota
-estado · siguiente · issue N · errores [N]
-detener · reanudar
-aprobar N · aprobar todo · confirmar CODIGO
-rechazar N
+
+Consultar
+/estado — flota, tarea, cola, PR y aprobación
+/agentes o /trabajo — qué agente trabaja, en qué fase
+/salud — estado de OpenClaw, OmniRoute, NinjaSec
+/error o /error N — fallos recientes (sin logs)
+
+Encolar trabajo
+/sig — siguiente issue con agente:lista
+/i N — encolar el issue N
+
+Aprobar (dos fases)
+/a N o /aprobar N — validar PR N, pide código
+/todo o /aprobar_todo — validar el lote actual, pide código
+/c CODIGO o /confirmar CODIGO — ejecutar con el código recibido
+/rechazar N — rechazar/cerrar el PR de integración N
+
+Control
+/pausa — no admitir tareas nuevas
+/seguir — reanudar
+
+No existe shell libre: solo estas intenciones cerradas.
+Manual completo: docs/telegram.md
 ```
 
 `estado` debe indicar, como mínimo:
