@@ -399,6 +399,47 @@ pendiente hasta superar las pruebas de extremo a extremo de
 
 ---
 
+## ADR-024 — Orden de modelos por rol: gratis primero, Codex al final
+
+**Contexto:** `scripts/ejecutar-issue.sh` fijaba por defecto los cuatro roles
+(planificador, backend, tests, docs) a variantes de Codex (`cx/gpt-5.6-sol`,
+`cx/gpt-5.6-terra`, `cx/gpt-5.5`). Esto contradice el diseño original — un
+modelo caro solo para planificar/revisar, modelos chinos baratos o gratuitos
+para ejecutar — y además dejaba a los cuatro roles sin trabajo apenas se
+agotaba la cuota de la cuenta ChatGPT/Codex, algo confirmado en la práctica
+el 2026-08-08: el issue #4 falló dos veces con `429` porque el planificador y
+los tres agentes dependían todos, en el fondo, de la misma suscripción.
+
+Al intentar usar Kimi/DeepSeek pagos como alternativa se encontró que ninguno
+está disponible ahora mismo por motivos ajenos al código: la cuenta de
+Moonshot/Kimi conectada a OmniRoute está **suspendida por falta de saldo**, y
+DeepSeek pago **no tiene credenciales cargadas** pese a lo que decía
+`modelos.md`. Ambos requieren una acción humana (recargar saldo, cargar la
+clave) que este ADR no resuelve.
+
+**Decisión:** los cuatro roles prueban, en orden, `oc/big-pickle` →
+`oc/deepseek-v4-flash-free` → una variante de Codex como último recurso.
+Backend, tests y docs ahora tienen el mismo mecanismo de reintento entre
+modelos ante `429` que ya tenía el planificador (antes solo reportaban el
+fallo sin probar una alternativa). El motivo del fallo final (límite de
+proveedor vs. fallo real de código/pruebas) se registra en
+`${AI_STATE_DIR}/issues/<N>/<agente>.motivo` para no confundir un `429` de
+un modelo anterior con el fallo real de otro.
+
+Cada tramo se puede sobrescribir con `CODEX_<ROL>_MODEL`,
+`CODEX_<ROL>_FALLBACK_MODEL` y `CODEX_<ROL>_LAST_RESORT_MODEL`.
+
+**Consecuencia:** la flota deja de depender de la cuota de ChatGPT/Codex para
+avanzar issues; solo la usa si las rutas gratuitas fallan de verdad. La ruta
+`oc/deepseek-v4-flash-free` tiene un bug de compatibilidad conocido con
+sesiones largas de tool-calling (`400 Duplicate value for 'tool_call_id'`,
+ver ESTADO.md 2026-08-08) — no se puso primera en el orden por eso. Cuando se
+recargue Kimi o se cargue la clave de DeepSeek pago, conviene agregarlos como
+`_LAST_RESORT_MODEL` explícito por rol, nunca como reemplazo silencioso de
+la ruta gratuita (regla 5 de [modelos.md](modelos.md)).
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
