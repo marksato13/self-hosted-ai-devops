@@ -43,7 +43,12 @@ proveedores basados en cookies web. El contenedor:
 - corre sin privilegios y sin capabilities;
 - escucha solamente en `127.0.0.1:20128`;
 - cifra credenciales persistidas con AES-256-GCM;
-- limita la concurrencia a cuatro peticiones;
+- limita la concurrencia a `OMNI_MAX_CONCURRENT_CONNECTIONS` peticiones (20
+  desde 2026-08-08; empezó en 4 y se subió porque el tráfico de fondo de
+  `openclaw-gateway` por sí solo lo saturaba, devolviendo `429 "Rejecting
+  request: at connection limit"` — indistinguible a simple vista de una
+  cuota de proveedor agotada; revisar `docker logs omniroute` para
+  diferenciarlos, ver ADR-024/ADR-026 en decisiones.md);
 - activa protección de inyección y redacción de PII;
 - conserva estado únicamente en el volumen `omniroute-data`.
 

@@ -242,6 +242,18 @@ modelo disponible en cada petición; revisá periódicamente el catálogo y sus
 términos. El contenedor y la ruta `auto/coding:free` fueron probados en esta VM
 el 2026-08-07.
 
+Al 2026-08-08 el catálogo real usado por `scripts/ejecutar-issue.sh` (no el
+alias `auto/*`) prueba, en orden, `oc/big-pickle` → `oc/deepseek-v4-flash-free`
+→ Codex (`cx/*`) para los cuatro roles — ver
+[ADR-024](docs/decisiones.md#adr-024--orden-de-modelos-por-rol-gratis-primero-codex-al-final).
+Las rutas `oc/*` tienen un bug de tool-calling conocido
+(`Duplicate value for 'tool_call_id'`) que puede aparecer en cualquier
+momento de una sesión con herramientas, no solo en sesiones largas — ver
+[ADR-026](docs/decisiones.md#adr-026--corrección-el-bug-de-tool_call_id-es-temprano-y-la-cuota-de-codex-volvió-antes-de-lo-anunciado).
+Kimi y Gemini están conectados como rutas adicionales pero no forman parte
+del fallback automático — ver [ADR-025](docs/decisiones.md#adr-025--gemini-gratuito-y-ollama-local-agregados-a-omniroute)
+y [docs/modelos.md](docs/modelos.md).
+
 ---
 
 ## Licencia

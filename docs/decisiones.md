@@ -499,6 +499,48 @@ sincronizados — revisar antes de asumir que sobrevive un `docker compose down`
 
 ---
 
+## ADR-026 — Corrección: el bug de tool_call_id es temprano, y la cuota de Codex volvió antes de lo anunciado
+
+**Contexto:** ADR-024 caracterizó el bug de `tool_call_id` duplicado de las
+rutas `oc/*` como un problema de "sesiones largas" (basado en que backend
+llegó a 85k tokens antes de romperse en una prueba). El 2026-08-08 por la
+noche, con el planificador ya corregido para no explorar archivos (mismo
+ADR), se reintentó issue #4 completo: **los tres agentes (backend, tests,
+docs) rompieron con el mismo error en el primer mensaje real de la
+conversación** (`message[5]`, entre 1300 y 1500 tokens cada uno) — no hay
+sesión larga previa. La caracterización original era incompleta: el bug
+puede dispararse temprano o tarde: no es predecible, y "session larga" no es
+condición necesaria.
+
+Por separado, se confirmó que **la cuota de Codex/ChatGPT volvió a estar
+disponible el mismo 2026-08-08 a las ~21:56**, varios días antes del
+"12/08/2026 12:28 AM" que anunciaba el mensaje de error original. Gran parte
+de los `429` vistos esa noche en la ruta `cx/*` de OmniRoute **no eran la
+cuota real**, sino el límite de conexiones concurrentes de OmniRoute
+(`OMNI_MAX_CONCURRENT_CONNECTIONS`, ver ADR-024) saturado por el tráfico de
+fondo de `openclaw-gateway` — ambos casos devuelven HTTP 429 y son
+indistinguibles a simple vista en los logs de Codex; solo se distinguen
+mirando `docker logs omniroute`, donde el límite de conexiones dice
+literalmente `"Rejecting request: at connection limit"` en vez de un error
+de cuota del proveedor. Subir el límite a `20` resolvió la confusión.
+
+**Decisión:** no confiar en la fecha de reset que reporta el mensaje de
+error de Codex como un límite duro — puede volver antes. Antes de asumir
+"cuota agotada", revisar `docker logs omniroute` para descartar que sea el
+límite de conexiones local. Para issue #4 puntualmente, con Codex disponible
+de nuevo, se forzó `CODEX_PLANNER_MODEL`/`_BACKEND_MODEL`/`_TESTS_MODEL`/
+`_DOCS_MODEL` a variantes `cx/*` en vez del orden gratis-primero de
+ADR-024, evitando así el bug de `oc/*` para este issue específico.
+
+**Consecuencia:** el orden gratis-primero de ADR-024 sigue siendo el default
+correcto para minimizar costo, pero cuando las rutas gratuitas fallan por el
+bug de `tool_call_id` (no por cuota), forzar Codex explícitamente es la
+salida más rápida si hay cuota disponible — vale la pena probarlo con un
+`codex exec "responde solo: ok"` directo (sin pasar por OmniRoute) antes de
+asumir que sigue bloqueado.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
