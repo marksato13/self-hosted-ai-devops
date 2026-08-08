@@ -61,7 +61,12 @@ jq -e '.state == "OPEN"' "$ESTADO/issue.json" >/dev/null || {
 PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 {
   echo "Planifica el issue de GitHub adjunto para tres roles independientes."
-  echo "No modifiques archivos. Devuelve únicamente JSON válido, sin markdown, con esta forma exacta:"
+  # No explorar archivos: cada llamada a herramienta del planificador suma
+  # riesgo de chocar con el bug de tool_call_id duplicado de las rutas
+  # oc/* de OmniRoute en sesiones largas (ADR-024, confirmado 2026-08-08:
+  # cero llamadas a herramientas evita el bug de forma consistente).
+  echo "No modifiques archivos. No leas, explores ni listes ningún otro archivo del repositorio: usá exclusivamente el texto de este issue."
+  echo "Devuelve únicamente JSON válido, sin markdown, con esta forma exacta:"
   echo '{"resumen":"...","subtareas":[{"agente":"backend|tests|docs","descripcion":"...","criterio_aceptacion":"..."}]}'
   echo "Usa como máximo una subtarea por agente y únicamente esos tres valores de agente."
   jq . "$ESTADO/issue.json"
