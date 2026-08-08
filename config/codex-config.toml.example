@@ -1,133 +1,17 @@
-# ============================================================
-#  Codex CLI — perfiles de la flota
-# ============================================================
-#  🔴 CAMBIO IMPORTANTE respecto del diseño original:
-#
-#  Desde febrero de 2026 Codex CLI solo acepta
-#  wire_api = "responses". El valor "chat" fue eliminado, y los
-#  proveedores externos deben hablar la Responses API de OpenAI
-#  para conectarse a Codex directamente.
-#
-#  DeepSeek, Bailian y Zhipu exponen Chat Completions, no
-#  Responses. Apuntarles directo NO funciona.
-#
-#  Solución: todo pasa por LiteLLM, que recibe /v1/responses y
-#  traduce a /chat/completions de cada proveedor. Codex ve un
-#  único proveedor; LiteLLM reparte por detrás y de paso aplica
-#  los topes de gasto.
-#
-#  Ver docs/decisiones.md — ADR-010
-#  Ver infra/litellm-config.yaml
-# ============================================================
-#
-#  Instalación:
-#    mkdir -p ~/.codex
-#    cp config/codex-config.toml.example ~/.codex/config.toml
-#    chmod 600 ~/.codex/config.toml
-#
-#  Las claves NO van en este archivo: se leen del entorno.
-#  Aquí solo hace falta LITELLM_MASTER_KEY — las claves de los
-#  cuatro proveedores las guarda LiteLLM.
-#    set -a && source ~/self-hosted-ai-devops/.env && set +a
-# ============================================================
+# Codex CLI a través de OmniRoute. No contiene credenciales.
+# La clave local se lee de OMNIROUTE_API_KEY.
 
+model = "auto/coding"
+model_provider = "omniroute"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
 
-# ---------- Valores por defecto ----------
-model          = "planner"
-model_provider = "gateway"
-
-# Sandbox: los agentes escriben solo dentro de su worktree.
-# Ver docs/seguridad.md — no aflojar esto sin motivo.
-approval_policy = "on-failure"
-sandbox_mode    = "workspace-write"
-
-
-# ============================================================
-#  PROVEEDOR ÚNICO — el gateway LiteLLM
-# ============================================================
-#  Ojo: los bloques [model_providers.*] NO son sobreescribibles
-#  por perfil. Van al nivel superior y todos los perfiles los ven.
-# ============================================================
-
-[model_providers.gateway]
-name     = "LiteLLM Gateway"
-base_url = "http://localhost:4000/v1"
-env_key  = "LITELLM_MASTER_KEY"
+[model_providers.omniroute]
+name = "OmniRoute local"
+base_url = "http://localhost:20128/v1"
+env_key = "OMNIROUTE_API_KEY"
+requires_openai_auth = false
 wire_api = "responses"
 
-
-# ============================================================
-#  PERFILES — uno por agente
-#  Los nombres de modelo son ALIAS definidos en
-#  infra/litellm-config.yaml, no nombres reales de modelo.
-#  Cambiar de modelo se hace allá, sin tocar este archivo.
-#
-#  Roles y prompts: docs/agentes.md
-# ============================================================
-
-# --- Planificador ---
-# Pocos tokens, mucho criterio. Cubierto por ChatGPT Plus.
-[profiles.planner]
-model           = "planner"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-# --- Agente Backend ---
-# El que más tokens consume: por eso apunta al modelo barato.
-[profiles.backend]
-model           = "backend"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-# --- Agente de Tests ---
-[profiles.tester]
-model           = "tester"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-# --- Agente de Docs ---
-# Modelo gratuito: redactar documentación tolera un modelo liviano.
-[profiles.docs]
-model           = "docs"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-# --- Agente Revisor ---
-# Mismo modelo que el Planificador, pero perfil aparte: así el
-# gasto de revisar queda separado del de planificar en LiteLLM.
-[profiles.reviewer]
-model           = "reviewer"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-# --- Agente Diseñador ---
-# 🔴 Este perfil DEBE apuntar a un modelo que acepte imágenes de
-# entrada. Uno de solo texto falla acá de forma silenciosa: no da
-# error, simplemente dice que no ve nada. Se comprueba con:
-#   codex --profile designer -i captura.png "¿qué texto se lee?"
-# Ver docs/bucle-visual.md y docs/decisiones.md — ADR-018
-[profiles.designer]
-model           = "designer"
-model_provider  = "gateway"
-approval_policy = "on-failure"
-
-
-# ============================================================
-#  Probar cada perfil POR SEPARADO antes de armar el flujo:
-#
-#    codex --profile planner  "responde solo: ok"
-#    codex --profile backend  "responde solo: ok"
-#    codex --profile tester   "responde solo: ok"
-#    codex --profile docs     "responde solo: ok"
-#    codex --profile reviewer "responde solo: ok"
-#
-#  El Diseñador se prueba distinto — con una imagen de verdad:
-#    codex --profile designer -i captura.png "¿qué texto se lee?"
-#
-#  Si uno falla, es problema de ese modelo en LiteLLM y se
-#  arregla solo. Probarlos juntos convierte 5 problemas simples
-#  en 1 confuso.
-#
-#  Antes de esto, verificar que el gateway responde:
-#    curl http://localhost:4000/health/liveliness
-# ============================================================
+# Codex 0.146+ carga cada perfil desde ~/.codex/<perfil>.config.toml.
+# Las plantillas correspondientes están en config/codex-profiles/.

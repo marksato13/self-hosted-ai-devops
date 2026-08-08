@@ -18,6 +18,8 @@ set -uo pipefail
 
 ENV_FILE="${HOME}/self-hosted-ai-devops/.env"
 [[ -f "$ENV_FILE" ]] && { set -a; source "$ENV_FILE"; set +a; }
+REPO_PLATAFORMA="${HOME}/self-hosted-ai-devops"
+REPO_OBJETIVO="${AI_TARGET_REPO_DIR:-}"
 
 OK=0; FALLO=0; OMITIDO=0
 
@@ -55,8 +57,8 @@ fase00() {
 fase0() {
   echo "── FASE 0 · Preparación ──"
   manual T001 "ISO de Ubuntu Server en el datastore"
-  manual T002 "Cuatro claves de API obtenidas"
-  manual T003 "Topes de gasto en las cuatro consolas"
+  manual T002 "Suscripción de Codex disponible"
+  manual T003 "Política sin rutas de pago revisada"
   manual T004 "Cuenta de Tailscale creada"
 }
 
@@ -68,9 +70,9 @@ fase1() {
 
 fase2() {
   echo "── FASE 2 · Ubuntu Server ──"
-  chk T007 "Ubuntu 24.04 instalado"        'lsb_release -ds | grep -q "24.04"'
+  chk T007 "Ubuntu LTS compatible instalado" 'grep -qE "VERSION_ID=\"(24.04|26.04)\"" /etc/os-release'
   chk T008 "Utilidades base instaladas"    'command -v git && command -v curl && command -v jq && command -v openssl'
-  chk T009 "Firewall ufw activo"           'sudo -n ufw status 2>/dev/null | grep -q "Status: active"'
+  chk T009 "Firewall ufw activo"           'systemctl is-active --quiet ufw && grep -q "^ENABLED=yes" /etc/ufw/ufw.conf'
 }
 
 fase3() {
@@ -87,23 +89,20 @@ fase4() {
 }
 
 fase5() {
-  echo "── FASE 5 · LiteLLM ──"
-  chk T014 "Repositorio clonado"           'test -f "$HOME/self-hosted-ai-devops/infra/litellm-config.yaml"'
+  echo "── FASE 5 · OmniRoute ──"
+  chk T014 "Repositorio clonado"           'test -f "$HOME/self-hosted-ai-devops/infra/docker-compose.yml"'
   chk T015 "Permisos 600 en .env"          '[[ "$(stat -c %a "$ENV_FILE")" == "600" ]]'
-  chk T016 "LITELLM_MASTER_KEY generada"   '[[ -n "${LITELLM_MASTER_KEY:-}" && ${#LITELLM_MASTER_KEY} -ge 20 ]]'
-  chk T016 "POSTGRES_PASSWORD generada"    '[[ -n "${POSTGRES_PASSWORD:-}" ]]'
-  for k in OPENAI_API_KEY DEEPSEEK_API_KEY DASHSCOPE_API_KEY ZHIPU_API_KEY; do
-    chk T017 "Clave presente: $k"          "[[ -n \"\${$k:-}\" ]]"
+  for k in OMNIROUTE_JWT_SECRET OMNIROUTE_API_KEY_SECRET OMNIROUTE_STORAGE_ENCRYPTION_KEY OMNIROUTE_INITIAL_PASSWORD; do
+    chk T016 "Secreto local: $k"           "[[ -n \"\${$k:-}\" ]]"
   done
-  chk T018 "Gateway responde"              'curl -fsS http://localhost:4000/health/liveliness'
-  for m in planner backend tester docs reviewer; do
-    chk T019 "Modelo responde: $m" "curl -fsS http://localhost:4000/v1/chat/completions \
-      -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' -H 'Content-Type: application/json' \
-      -d '{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}]}' \
-      | jq -e '.choices[0].message.content'"
-  done
-  chk T020 "Claves virtuales creadas" "curl -fsS http://localhost:4000/key/list \
-    -H 'Authorization: Bearer ${LITELLM_MASTER_KEY:-}' | jq -e '.keys | length >= 5'"
+  chk T017 "Sin claves comerciales en .env" '! grep -qE "^(OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU|MOONSHOT)_API_KEY=" "$ENV_FILE"'
+  chk T018 "Gateway responde"              'curl -fsS http://localhost:20128/api/monitoring/health'
+  chk T019 "Catálogo auto disponible"      'curl -fsS http://localhost:20128/v1/models | jq -e ".data[] | select(.id == \"auto/coding\")"'
+  chk T019 "Ruta gratuita responde"        'curl -fsS --max-time 90 http://localhost:20128/v1/chat/completions \
+    -H "Authorization: Bearer ${OMNIROUTE_API_KEY:-}" -H "Content-Type: application/json" \
+    -d "{\"model\":\"auto/coding:free\",\"messages\":[{\"role\":\"user\",\"content\":\"Responde solamente OK\"}],\"max_tokens\":16}" \
+    | grep -q "content.*OK"'
+  manual T020 "Codex OAuth y proveedor gratuito conectados"
 }
 
 fase6() {
@@ -117,9 +116,15 @@ fase6() {
 fase7() {
   echo "── FASE 7 · OpenClaw ──"
   chk T024 "OPENCLAW_IMAGE definida"       '[[ -n "${OPENCLAW_IMAGE:-}" ]]'
-  chk T025 "Contenedor postgres arriba"    'docker ps --format "{{.Names}}" | grep -q litellm-db'
-  chk T025 "Contenedor litellm arriba"     'docker ps --format "{{.Names}}" | grep -qx litellm'
-  chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw'
+  chk T025 "Contenedor OmniRoute arriba"   'docker ps --format "{{.Names}}" | grep -qx omniroute'
+  chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw-gateway'
+  chk T025 "Configuración OpenClaw válida" 'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" run --rm -T --entrypoint node openclaw-gateway dist/index.js config validate'
+  chk T025 "Telegram usa allowlist cerrada" 'jq -e '\''(.gateway.mode == "local") and (.channels.telegram.enabled == true) and (.channels.telegram.dmPolicy == "allowlist") and (.channels.telegram.allowFrom | length > 0) and (.channels.telegram.groupPolicy == "disabled")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
+  chk T025 "Modelo usa OmniRoute local"      'jq -e '\''(.models.providers.omniroute.baseUrl == "http://omniroute:20128/v1") and (.agents.defaults.model.primary == "omniroute/oc/big-pickle")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
+  chk T025 "Herramientas denegadas por defecto" 'jq -e '\''(.tools.allow | type == "array") and (.tools.allow | length == 0)'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
+  chk T025 "Plugin de control determinista cargado" 'docker exec openclaw-gateway node dist/index.js plugins inspect flota-control --runtime --json | jq -e '\''.plugin.status == "loaded" and (["aprobar","aprobar_todo","confirmar","flota","rechazar","a","c","todo","estado","sig","pausa","seguir","i","error"] - .commands | length == 0)'\'''
+  chk T025 "Identidad Nexo instalada"       'grep -q "Name:.*Nexo" "${OPENCLAW_CONFIG_DIR}/workspace/IDENTITY.md" && test ! -f "${OPENCLAW_CONFIG_DIR}/workspace/BOOTSTRAP.md"'
+  chk T025 "Gateway responde saludable"    'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" exec -T openclaw-gateway node dist/index.js gateway health'
   manual T026 "El bot responde a tu cuenta"
   manual T027 "🔴 El bot IGNORA a otra cuenta"
 }
@@ -129,32 +134,35 @@ fase8() {
   chk T028 "Codex instalado"               'codex --version'
   chk T029 "config.toml presente"          'test -f "$HOME/.codex/config.toml"'
   chk T029 "wire_api = responses"          'grep -q "wire_api = \"responses\"" "$HOME/.codex/config.toml"'
-  chk T029 "Apunta al gateway local"       'grep -q "localhost:4000" "$HOME/.codex/config.toml"'
-  chk T030 "Variables en el entorno"       '[[ -n "${LITELLM_MASTER_KEY:-}" ]]'
+  chk T029 "Apunta al gateway local"       'grep -q "localhost:20128" "$HOME/.codex/config.toml"'
+  chk T030 "Clave local de OmniRoute"      '[[ -n "${OMNIROUTE_API_KEY:-}" ]]'
   for p in planner backend tester docs reviewer; do
-    chk T031 "Perfil definido: $p"         "grep -q '\[profiles.$p\]' \"\$HOME/.codex/config.toml\""
+    chk T031 "Perfil definido: $p"         "test -f \"\$HOME/.codex/$p.config.toml\""
   done
 }
 
 fase9() {
   echo "── FASE 9 · GitHub y guardarraíles ──"
-  chk T032 "GITHUB_TOKEN en .env"          '[[ -n "${GITHUB_TOKEN:-}" ]]'
+  chk T032 "Credencial de GitHub disponible" '[[ -n "${GITHUB_TOKEN:-}" ]] || gh auth status'
   chk T033 "gh autenticado"                'gh auth status'
-  chk T034 "main protegida"                'gh api "repos/${GITHUB_OWNER:-marksato13}/${GITHUB_REPO:-self-hosted-ai-devops}/branches/main/protection"'
+  # Hardcodeado a propósito: $GITHUB_OWNER/$GITHUB_REPO identifican el
+  # repositorio objetivo del runner (p. ej. ninjasec-platform), no esta
+  # plataforma. T034 protege siempre la rama main de este repositorio.
+  chk T034 "main protegida"                'gh api "repos/marksato13/self-hosted-ai-devops/branches/main/protection"'
   chk T035 "gitleaks instalado"            'gitleaks version'
   chk T035 "hook de pre-commit instalado"  'test -f "$HOME/self-hosted-ai-devops/.git/hooks/pre-commit"'
-  chk T036 "gitleaks detecta un secreto"   'printf "OPENAI_API_KEY=sk-proj-falsaparaprobar1234567890abcdef\n" > /tmp/_gl.txt; ! gitleaks detect --no-git --source /tmp/_gl.txt --no-banner; rc=$?; rm -f /tmp/_gl.txt; test $rc -eq 0'
-  chk T037 "Workspace preparado"           'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/nueva-tarea.sh"'
+  chk T036 "gitleaks detecta un secreto"   'd="$(mktemp -d)"; valor="sk-proj-$(openssl rand -hex 32)"; printf "OPENAI_API_KEY=%s\n" "$valor" > "$d/prueba.txt"; ! gitleaks detect --no-git --source "$d" --no-banner --redact'
+  chk T037 "Repositorio objetivo configurado" '[[ -n "$REPO_OBJETIVO" && -d "$REPO_OBJETIVO/.git" ]]'
   manual T038 "PR abierto desde el celular"
   manual T039 "Snapshot 03-stack-completo"
 }
 
 fase10() {
   echo "── FASE 10 · La flota ──"
-  chk T040 "scripts/nueva-tarea.sh ejecutable"      'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/nueva-tarea.sh"'
-  chk T042 "scripts/integrar.sh ejecutable"         'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/integrar.sh"'
-  chk T043 "scripts/limpiar-worktrees.sh ejecutable" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/limpiar-worktrees.sh"'
-  chk T043 "Sin worktrees huérfanos" 'test "$(git -C "$HOME/workspace/self-hosted-ai-devops" worktree list | wc -l)" -eq 1'
+  chk T040 "scripts/nueva-tarea.sh ejecutable"      'test -x "$REPO_PLATAFORMA/scripts/nueva-tarea.sh"'
+  chk T042 "scripts/integrar.sh ejecutable"         'test -x "$REPO_PLATAFORMA/scripts/integrar.sh"'
+  chk T043 "scripts/limpiar-worktrees.sh ejecutable" 'test -x "$REPO_PLATAFORMA/scripts/limpiar-worktrees.sh"'
+  chk T043 "Sin worktrees huérfanos" '[[ -n "$REPO_OBJETIVO" && -d "$REPO_OBJETIVO/.git" ]] && test "$(git -C "$REPO_OBJETIVO" worktree list | wc -l)" -eq 1'
   manual T044 "Ciclo completo desde Telegram"
   manual T045 "Checklist de seguridad repasado"
 }
@@ -173,10 +181,10 @@ fase11() {
   chk T054 "El comparador detecta cambios" 'test -d "${ARTEFACTOS_DIR:-/nada}/cambiado/diff"'
   manual T055 "Imagen recibida en Telegram"
   chk T056 "WHATSAPP_MODO definido"        '[[ "${WHATSAPP_MODO:-}" =~ ^(off|cloud|openclaw)$ ]]'
-  chk T057 "Perfil designer definido"      'grep -q "\[profiles.designer\]" "$HOME/.codex/config.toml"'
-  chk T057 "Alias designer en el gateway"  'grep -q "model_name: designer" "$HOME/self-hosted-ai-devops/infra/litellm-config.yaml"'
+  chk T057 "Perfil designer definido"      'test -f "$HOME/.codex/designer.config.toml"'
+  chk T057 "Designer exige multimodal gratis" 'grep -q "auto/multimodal:free" "$HOME/.codex/designer.config.toml"'
   manual T057 "🔴 El modelo LEE la imagen (no solo responde)"
-  chk T058 "scripts del bucle ejecutables" 'test -x "$HOME/workspace/self-hosted-ai-devops/scripts/bucle-visual.sh"'
+  chk T058 "scripts del bucle ejecutables" 'test -x "$REPO_PLATAFORMA/scripts/bucle-visual.sh"'
 }
 
 case "${1:-all}" in

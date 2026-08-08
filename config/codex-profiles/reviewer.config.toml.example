@@ -1,0 +1,4 @@
+model = "auto/coding"
+model_provider = "omniroute"
+approval_policy = "never"
+sandbox_mode = "workspace-write"

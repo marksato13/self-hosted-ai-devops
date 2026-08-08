@@ -1,169 +1,94 @@
-# Modelos y proveedores
+# Modelos, rutas y costo
 
-Qué modelo usa cada agente, de dónde sale la clave y cuánto cuesta.
+La plataforma usa OmniRoute para combinar la suscripción existente de Codex,
+proveedores gratuitos y dos conexiones comerciales opcionales. Al 7 de agosto
+de 2026 están registradas Codex OAuth, Kimi/Moonshot API y DeepSeek API. Las
+credenciales permanecen cifradas en OmniRoute y nunca se documentan.
 
-> ⚠️ **Antes de configurar nada:** los nombres de modelo, endpoints y precios de este documento vienen de la investigación de diseño y **no están verificados contra las consolas oficiales**. Los proveedores renombran modelos y cambian precios seguido. Confirmá cada fila en la documentación del proveedor antes de pegar una clave, y actualizá esta tabla con lo que encuentres.
->
-> Atajo útil: el catálogo [FREE_TIERS.md de OmniRoute](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/FREE_TIERS.md) se re-audita cada dos semanas e incluye, por proveedor, la cuota gratuita real **y qué dice su ToS sobre usarlo detrás de un proxy** — que es la letra chica que importa acá. De ahí salen dos datos que esta tabla no tenía: `chutes` cerró su capa gratuita en marzo de 2026 y `aimlapi` la dejó en pausa. No adoptamos OmniRoute como gateway ([ADR-019](decisiones.md#adr-019--omniroute-evaluado-litellm-se-queda)), pero su catálogo sirve igual.
+## Catálogo elegido para desarrollo
 
----
-
-## 🔴 Todo pasa por LiteLLM
-
-Codex CLI **no** habla con los proveedores directamente. Desde febrero de 2026 solo acepta la Responses API, y DeepSeek, Bailian y Zhipu exponen Chat Completions. LiteLLM traduce entre ambas.
-
-```
-Codex ──responses──► LiteLLM ──chat──► DeepSeek / Qwen / GLM
-                        │
-                        └── presupuestos, fallbacks, registro de costos
-```
-
-No es una comodidad: **sin LiteLLM, tres de los cinco agentes no arrancan**. Ver [ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos) y [`infra/litellm-config.yaml`](../infra/litellm-config.yaml).
-
-Consecuencia práctica: los nombres de perfil de Codex son **alias** definidos en el YAML de LiteLLM. Cambiar de modelo se hace ahí, sin tocar Codex.
-
----
-
-## Reparto por agente
-
-| Agente | Alias | Modelo | Proveedor | Variable de entorno |
+| Prioridad | Modelo o ruta | Uso | Estado verificado | Costo adicional |
 |---|---|---|---|---|
-| Planificador | `planner` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
-| Backend | `backend` | DeepSeek V4 | DeepSeek | `DEEPSEEK_API_KEY` |
-| Tests | `tester` | Qwen3.5-coder | Alibaba Bailian / DashScope | `DASHSCOPE_API_KEY` |
-| Docs | `docs` | GLM-4.5-Air | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
-| Revisor | `reviewer` | GPT-5.1 | OpenAI | `OPENAI_API_KEY` |
-| Diseñador | `designer` | GLM-4.5V **(visión)** | Zhipu AI / Z.ai | `ZHIPU_API_KEY` |
+| 1 | `cx/gpt-5.6-sol` | Implementación y revisión exigente | Codex OAuth activo; prueba correcta | Cubierto por ChatGPT Plus; sujeto a sus límites |
+| 2 | `aug/sonnet5-high` | Arquitectura, implementación y revisión | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
+| 3 | `aug/sonnet5-500k` | Contextos excepcionalmente grandes | Anunciado por el catálogo; falta conexión/prueba de Auggie | Desconocido hasta revisar el plan del proveedor |
+| 4 | `oc/big-pickle` | Desarrollo gratuito y fallback | OpenCode Free probado | USD 0 según la ruta gratuita |
+| 5 | `oc/deepseek-v4-flash-free` | Desarrollo gratuito | Anunciado por OpenCode Free; pendiente de prueba individual | USD 0 según la ruta gratuita |
+| 6 | `deepseek/deepseek-v4-pro` | Código y razonamiento, solo bajo petición | Conexión activa; no se hizo prueba pagada | API de pago |
+| 7 | Kimi/Moonshot | Contexto largo y alternativa de código | Conexión activa; modelo exacto y prueba pendientes | API de pago |
 
-Las cuatro claves las consume **LiteLLM**. Codex solo necesita `LITELLM_MASTER_KEY`.
+“Sonnet 5” significa los identificadores que anuncia esta instalación de
+OmniRoute bajo el proveedor Auggie. Que un modelo aparezca en `/v1/models` no
+demuestra que exista una cuenta habilitada ni que pueda usarse gratis. No se
+incorpora al fallback automático hasta completar una prueba y revisar costos.
 
-El Diseñador reutiliza la clave de Zhipu: son dos modelos del mismo proveedor, uno de texto y uno de visión.
+## Rutas por agente
 
----
-
-## Dónde se saca cada clave
-
-### OpenAI — Planificador y Revisor
-
-- Consola: https://platform.openai.com/api-keys
-- El usuario **ya paga ChatGPT Plus/Pro**, que incluye Codex CLI. Verificar si el uso por API se cubre con la suscripción o se factura aparte: son dos cosas distintas y es el punto que más confunde.
-- Poner un **límite de gasto mensual** en *Settings → Limits* antes de dejar agentes corriendo.
-
-### DeepSeek — Backend
-
-- Consola: https://platform.deepseek.com
-- Modelo económico por token; es el que absorbe el grueso del volumen.
-- Requiere recarga previa de saldo (prepago).
-
-### Alibaba Bailian (DashScope) — Tests
-
-- Consola: https://bailian.console.aliyun.com
-- Suele traer una cuota gratuita inicial por modelo.
-- Ojo con la **región del endpoint**: el internacional y el de China continental son distintos y las claves no son intercambiables.
-
-### Zhipu AI / Z.ai — Docs
-
-- Consola: https://open.bigmodel.cn (o https://z.ai)
-- La variante *Air* es la gratuita o casi gratuita; es suficiente para redactar documentación.
-
----
-
-## Requisito técnico común
-
-Los cuatro proveedores deben cumplir dos condiciones para servir en este stack:
-
-1. **API compatible con OpenAI** (endpoint `/chat/completions` o Responses API), para que Codex CLI pueda apuntarles cambiando solo la `base_url`.
-2. **Soporte de *tool calling*.** Sin esto el modelo no puede leer ni escribir archivos, y por lo tanto no puede programar. Es la condición que descarta modelos que en otros aspectos serían suficientes.
-
-Al evaluar un modelo nuevo, verificar ambas antes que cualquier otra cosa.
-
----
-
-## El Diseñador necesita visión
-
-El alias `designer` es el único con un requisito extra: **tiene que aceptar imágenes de entrada**. Recibe capturas de pantalla, no texto.
-
-Esto falla de la peor manera posible si se ignora: un modelo de solo texto **no da error**. Responde educadamente que no puede ver la imagen, el bucle visual interpreta que no hay problemas, y todo queda aprobando pantallas rotas en silencio.
-
-Por eso la comprobación no es «¿responde?» sino «¿lee lo que dice la imagen?»:
-
-```bash
-codex --profile designer -i captura.png "¿Qué texto se lee en esta imagen? Respondé solo el texto."
-```
-
-Si no devuelve el texto que está en la captura, el modelo no sirve para este rol.
-
-| Candidato | Proveedor | Nota |
-|---|---|---|
-| GLM-4.5V | Zhipu / Z.ai | El elegido: barato y misma clave que `docs` |
-| Qwen-VL | Alibaba Bailian | Alternativa, misma clave que `tester` |
-| GPT-5.1 | OpenAI | Respaldo automático vía `fallbacks` de LiteLLM |
-
-Los nombres exactos de modelo cambian seguido: confirmarlos en la consola del proveedor antes de instalar. El alias existe justamente para que cambiar de modelo sea una línea en [`infra/litellm-config.yaml`](../infra/litellm-config.yaml).
-
-Ver [ADR-018](decisiones.md#adr-018--un-agente-diseñador-aparte-y-no-el-revisor-con-ojos) y [bucle-visual.md](bucle-visual.md).
-
----
-
-## Topes de gasto
-
-Un agente autónomo con reintentos automáticos puede quemar créditos durante la noche sin que nadie lo note. Tres capas de defensa, en orden de importancia:
-
-| # | Capa | Dónde | Qué tan confiable |
+| Agente | Perfil | Ruta OmniRoute | Costo adicional |
 |---|---|---|---|
-| 1 | Tope en la consola del proveedor | Web de OpenAI, DeepSeek, Bailian, Zhipu | **Absoluta** — fuera de tu código, no puede fallar |
-| 2 | `max_budget` global de LiteLLM | `infra/litellm-config.yaml` | Alta — el gateway rechaza la llamada |
-| 3 | Clave virtual con presupuesto por agente | LiteLLM, 5 USD cada una | Alta — aísla al agente que se desmadró |
-| 4 | `MAX_RETRIES_PER_TASK`, `TASK_TIMEOUT_MINUTES` | `.env` | Media — es software propio, puede fallar |
-| 5 | Alertas de consumo por correo | Consola del proveedor | No corta nada, pero te enterás a tiempo |
+| Planificador | `planner` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
+| Backend | `backend` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
+| Tests | `tester` | `auto/coding:free` | USD 0 |
+| Docs | `docs` | `auto/coding:free` | USD 0 |
+| Revisor | `reviewer` | `auto/coding` | USD 0; Codex Plus o fallback gratuito |
+| Diseñador | `designer` | `auto/multimodal:free` | USD 0 |
 
-**La capa 1 no es opcional.** Un límite que vive solo en tu propio código no detiene nada si tu propio código tiene un bug.
+Los alias `auto` se resuelven dinámicamente según salud, cuota, latencia,
+capacidad y tipo de tarea. El modelo concreto puede cambiar entre peticiones.
 
-La capa 3 es la más útil en la práctica: si el agente Backend entra en bucle, quema **sus** 5 USD y se detiene, sin arrastrar el presupuesto de los demás ni dejar al Revisor sin crédito. Se crean en la [Fase 5.4](instalacion.md#54-claves-virtuales-con-presupuesto-por-agente).
+## Qué significa gratuito
 
-Consultar el gasto acumulado por agente:
+OmniRoute es MIT y se ejecuta localmente. Los proveedores remotos ofrecen cuotas
+gratuitas con límites y condiciones propias; no todos sus modelos son open
+source. Por eso “costo adicional cero” no significa inferencia local ni servicio
+ilimitado.
+
+Reglas de esta instalación:
+
+1. No activar recarga automática.
+2. No guardar claves comerciales en `.env`, Markdown, scripts ni Git; se
+   introducen directamente en OmniRoute.
+3. Usar rutas `:free` para trabajos de volumen.
+4. Permitir Codex OAuth solo porque ya está cubierto por ChatGPT Plus.
+5. Kimi y DeepSeek se invocan por nombre explícito y solo con autorización de
+   costo; no deben ser fallback de una ruta marcada como gratuita.
+6. Si no hay cuota gratuita, detener la tarea; nunca degradar silenciosamente a
+   una ruta pagada.
+7. Revisar el gasto en las consolas de Kimi y DeepSeek y fijar límites cuando el
+   proveedor los permita.
+
+## Fuente y condiciones
+
+El catálogo [FREE_TIERS.md de OmniRoute](https://github.com/diegosouzapw/OmniRoute/blob/main/docs/reference/FREE_TIERS.md)
+se actualiza periódicamente y diferencia cuotas recurrentes, créditos de alta y
+proveedores sin límite publicado. También clasifica sus términos como `ok`,
+`caution`, `ambiguous`, `unknown` o `avoid`.
+
+Para esta flota personal:
+
+- aceptar `ok`;
+- evaluar manualmente `caution` antes de conectar una cuenta;
+- no usar `avoid`;
+- no usar wrappers de sesiones web sin API oficial;
+- no compartir acceso con terceros ni revenderlo.
+
+## Límites de la VM
+
+La VM tiene alrededor de 7 GB de RAM. Puede ejecutar modelos locales pequeños,
+pero no `qwen3-coder:30b`, que ronda 19 GB solo para el modelo cuantizado. Ollama
+queda como posible fallback pequeño, no como motor principal. Para modelos
+locales fuertes se recomienda ampliar la VM a 24–32 GB de RAM.
+
+## Verificación
+
+El gateway debe reportar salud, anunciar las rutas y completar una petición
+gratuita:
 
 ```bash
-curl -s http://localhost:4000/spend/logs \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" | jq
+./scripts/verificar.sh 5
 ```
 
-Tope sugerido para empezar: **20 USD/mes** en total, 5 por agente. Con el reparto previsto (85 % del volumen en modelos baratos) debería sobrar.
+La selección real se consulta en las cabeceras `X-OmniRoute-Provider`,
+`X-OmniRoute-Model` y `X-OmniRoute-Response-Cost`, o en el dashboard local.
 
-Las claves virtuales suman más que el tope global a propósito: seis agentes × 5 USD = 30, contra un `max_budget` de 20. Ninguno puede pasarse de lo suyo, y entre todos no pueden pasar de 20. El límite que corta primero es el global.
-
-> Si se activa el [bucle visual](bucle-visual.md), el Diseñador es el que más rápido consume su parte: cada vuelta son nueve imágenes, y las imágenes cuestan bastante más que el texto equivalente. Vale la pena mirar su gasto la primera semana.
-
----
-
-## Estimación de consumo
-
-Referencia aproximada para una tarea típica ("avanza el issue #12"):
-
-| Agente | Tokens estimados por tarea | Peso |
-|---|---|---|
-| Planificador | 5 – 15 k | Bajo |
-| Backend | 50 – 200 k | **Alto** |
-| Tests | 30 – 80 k | Medio |
-| Docs | 10 – 30 k | Bajo |
-| Revisor | 20 – 60 k | Medio |
-
-De ahí sale la asignación de modelos: el rango alto va al proveedor barato, y el modelo caro —ya cubierto por la suscripción— se reserva para planificar y revisar.
-
-> Estos números son estimaciones de diseño. Medí el consumo real durante la Fase 4 y reemplazá esta tabla con datos de las consolas.
-
----
-
-## Si un modelo se descontinúa
-
-Los nombres de modelo cambian con frecuencia. Para reemplazar uno:
-
-1. Confirmá que el sustituto tiene **tool calling** y API compatible con OpenAI.
-2. Actualizá `base_url` y `model` en `~/.codex/config.toml` (plantilla en [`config/codex-config.toml.example`](../config/codex-config.toml.example)).
-3. Probá el perfil aislado antes de meterlo al flujo:
-   ```bash
-   codex --profile deepseek "escribe una función que sume dos números"
-   ```
-4. Actualizá la tabla de este documento y la de [agentes.md](agentes.md).
-
-Como el ejecutor es siempre el mismo binario, cambiar de modelo no toca la arquitectura: es una línea de configuración.
+Más detalles operativos en [omniroute.md](omniroute.md).

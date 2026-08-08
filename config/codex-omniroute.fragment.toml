@@ -1,0 +1,9 @@
+# BEGIN self-hosted-ai-devops OmniRoute
+[model_providers.omniroute]
+name = "OmniRoute local"
+base_url = "http://localhost:20128/v1"
+env_key = "OMNIROUTE_API_KEY"
+requires_openai_auth = false
+wire_api = "responses"
+
+# END self-hosted-ai-devops OmniRoute

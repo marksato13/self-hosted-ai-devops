@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exit "${FAKE_DOCKER_RC:-0}"

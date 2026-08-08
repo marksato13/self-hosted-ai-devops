@@ -1,0 +1,4 @@
+model = "auto/multimodal:free"
+model_provider = "omniroute"
+approval_policy = "never"
+sandbox_mode = "read-only"

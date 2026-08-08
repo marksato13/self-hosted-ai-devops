@@ -30,6 +30,9 @@ if [[ -z "$ISSUE" ]]; then
   exit 1
 fi
 
+[[ "$ISSUE" =~ ^[0-9]+$ ]] || { echo "El issue debe ser numérico." >&2; exit 1; }
+[[ "$AGENTE" =~ ^[a-z][a-z0-9-]*$ ]] || { echo "Agente inválido." >&2; exit 1; }
+
 REPO_RAIZ="$(git rev-parse --show-toplevel)"
 ORIGEN="$(dirname "$REPO_RAIZ")/worktrees/issue-${ISSUE}-${AGENTE}"
 COMPOSE=(docker compose -f "${REPO_RAIZ}/infra/docker-compose.yml"
@@ -62,7 +65,13 @@ fi
 # nueva ya no genera, no deben seguir apareciendo en las capturas.
 echo "▶ Publicando ${DIST} → ${STAGE_DIR}"
 mkdir -p "$STAGE_DIR"
-rm -rf "${STAGE_DIR:?}"/*
+case "$STAGE_DIR" in
+  /|"$HOME"|"$REPO_RAIZ")
+    echo "STAGE_DIR apunta a una ruta protegida; se cancela." >&2
+    exit 3
+    ;;
+esac
+find "$STAGE_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 cp -a "${DIST}/." "$STAGE_DIR/"
 
 # ---------- 3. Levantar el stage ----------

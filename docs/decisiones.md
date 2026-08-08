@@ -322,15 +322,92 @@ Codex le sigue hablando a LiteLLM, los presupuestos y fallbacks no se tocan, y l
 
 ---
 
+## ADR-020 — Cola local entre OpenClaw y el runner
+
+**Contexto:** OpenClaw corre en Docker y Codex en el host. Montar el socket de
+Docker, el token de GitHub y todas las claves dentro del gateway convertiría
+una vulnerabilidad del canal de mensajería en control total de la VM.
+
+**Decisión:** OpenClaw solo escribe solicitudes numéricas en una cola montada.
+Un servicio `systemd` del host valida y procesa la cola con bloqueo exclusivo.
+
+**Consecuencia:** existe una pieza adicional, pero el contenedor no recibe los
+secretos del runner. Cada solicitud deja estado auditable y puede recuperarse.
+
+---
+
+## ADR-021 — La VM existente conserva Ubuntu 26.04
+
+**Contexto:** el diseño prefería Ubuntu Server 24.04, pero la VM disponible ya
+ejecuta Ubuntu 26.04 sobre VMware. En ella se verificaron Node 22, Codex CLI,
+Docker 29 con Compose y Tailscale. Reinstalar no aporta aislamiento adicional y
+sí destruiría una base funcional.
+
+**Decisión:** conservar Ubuntu 26.04 para esta instalación y aceptar ambas LTS
+en `scripts/verificar.sh`. La documentación nueva no debe asumir que todas las
+instalaciones usan la misma versión.
+
+**Consecuencia:** cualquier instrucción dependiente de paquetes debe probarse
+en esta VM antes de marcarla como completada. La compatibilidad comprobada no
+convierte 26.04 en requisito para otras instalaciones.
+
+---
+
+## ADR-022 — OmniRoute reemplaza a LiteLLM
+
+**Contexto:** el requisito definitivo es no pagar APIs adicionales. La VM tiene
+7 GB de RAM, insuficientes para ejecutar localmente modelos de programación de
+30B competitivos. ChatGPT Plus cubre Codex CLI, pero no OpenAI API.
+
+**Decisión:** OmniRoute reemplaza a LiteLLM y PostgreSQL. Codex se conecta por
+OAuth usando la suscripción existente; los perfiles de volumen usan rutas
+`auto/*:free`. Se eliminan de `.env` las claves comerciales.
+
+**Controles:** imagen fijada por digest, variante Docker sin navegador, puerto
+loopback, acceso por Tailscale Serve, proceso sin root ni capabilities,
+credenciales cifradas, concurrencia limitada y proveedores `avoid` excluidos.
+Las funciones MITM y los proveedores basados en cookies web no se habilitan.
+
+**Consecuencia:** no hay costo variable, pero tampoco garantía de capacidad.
+Las cuotas y modelos pueden cambiar y algunos proveedores son servicios
+propietarios aunque OmniRoute sea MIT. Si no queda cuota, el trabajo se detiene.
+Esta decisión **reemplaza ADR-010 y ADR-019** para la instalación actual.
+
+---
+
+## ADR-023 — Runner reconciliado y aprobación humana en dos fases
+
+**Contexto:** una cola despertada solamente por eventos puede perder trabajo
+después de un reinicio. Además, una orden breve como «aprueba» puede referirse
+a otro PR, llegar tarde o ejecutarse después de que cambió el commit.
+
+**Decisión:** el runner usa estado atómico por issue, historial de eventos,
+bloqueo exclusivo, reintentos limitados y dos disparadores systemd: un `.path`
+para baja latencia y un `.timer` para reconciliación. Procesa una tarea por
+invocación, recupera `.running` huérfanos y admite una pausa cooperativa.
+
+El merge conserva intervención humana y requiere dos fases: `aprobar PR N`
+produce un resumen y un código efímero; `confirmar CÓDIGO` solo es válido para
+el mismo `chat_id`, PR y SHA, con CI verde comprobada nuevamente. Cambiar el
+SHA invalida la aprobación.
+
+**Consecuencia:** reiniciar la VM o perder un evento no pierde una solicitud y
+un mensaje ambiguo no basta para fusionar. Hay más estado operativo que
+respaldar y observar en `${AI_STATE_DIR}`. La capa Telegram se considera
+pendiente hasta superar las pruebas de extremo a extremo de
+[ciclo-autonomo.md](ciclo-autonomo.md).
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
 |---|---|
-| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resolver en la Fase 8 |
+| ¿OpenClaw invoca Codex por CLI directo o hace falta un wrapper? | Resuelta: cola local y runner del host, ADR-020 |
 | ¿PAT o GitHub App? | El PAT alcanza para empezar; migrar si se suman más repos |
 | ¿Dónde persiste la memoria de tareas de OpenClaw? | Verificar en la Fase 6 |
 | ¿Conviene un hilo de Telegram por tarea, como hace takopi? | Evaluar cuando haya varias tareas concurrentes |
 | ¿Correr al Revisor también como check de CI, con codex-action? | Después de la Fase 9 |
-| ¿Vale la pena OmniRoute detrás de LiteLLM, por las capas gratuitas? | Fase 12, con datos de consumo reales — [ADR-019](#adr-019--omniroute-evaluado-litellm-se-queda) |
+| ¿Vale la pena OmniRoute? | Resuelta: reemplaza LiteLLM, ADR-022 |
 
 *(Resuelta: ¿clones o worktrees? → worktrees, ADR-011.)*

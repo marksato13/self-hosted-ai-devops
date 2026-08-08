@@ -22,7 +22,7 @@ Cada fase termina con un **criterio verificable**. Si no se cumple, no pases a l
 | [2](#fase-2--instalar-ubuntu-server-2404-lts) | Ubuntu Server instalado | 30 min |
 | [3](#fase-3--acceso-remoto-con-tailscale) | SSH desde el celular | 15 min |
 | [4](#fase-4--docker) | Docker funcionando | 10 min |
-| [5](#fase-5--litellm-el-gateway-de-modelos) | Los 4 modelos accesibles por un endpoint | 40 min |
+| [5](#fase-5--omniroute-el-gateway-gratuito) | Ruta gratuita y Codex Plus por un endpoint | 40 min |
 | [6](#fase-6--el-bot-de-telegram) | Bot creado con allowlist verificada | 20 min |
 | [7](#fase-7--openclaw) | Orquestador respondiendo por Telegram | 30 min |
 | [8](#fase-8--codex-cli-y-los-perfiles) | Los 5 perfiles de agente probados | 30 min |
@@ -151,9 +151,11 @@ docker compose version
 
 ---
 
-## Fase 5 — LiteLLM, el gateway de modelos
+## Fase 5 — OmniRoute, el gateway gratuito
 
-> Esta fase no estaba en el plan original. Se agregó porque **sin ella tres de los cinco agentes no funcionan**: Codex CLI solo habla la Responses API y DeepSeek, Qwen y GLM solo hablan Chat Completions. LiteLLM traduce entre ambas, y de paso aplica los topes de gasto. Ver [ADR-010](decisiones.md#adr-010--litellm-como-gateway-de-modelos).
+OmniRoute recibe la Responses API de Codex, usa la suscripción ChatGPT Plus por
+OAuth y enruta el resto hacia capas gratuitas. No se compran créditos de API.
+Ver [ADR-022](decisiones.md#adr-022--omniroute-reemplaza-a-litellm).
 
 ### 5.1 Clonar el repo y preparar los secretos
 
@@ -161,68 +163,51 @@ docker compose version
 cd ~
 git clone https://github.com/marksato13/self-hosted-ai-devops.git
 cd self-hosted-ai-devops
-cp .env.example .env
-chmod 600 .env
+./scripts/preparar-entorno.sh
 ```
 
-Generá las dos claves internas:
-
-```bash
-echo "LITELLM_MASTER_KEY=sk-$(openssl rand -hex 24)"
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
-```
-
-Copiá esas dos líneas al `.env`, junto con las cuatro claves de proveedor:
-
-```bash
-nano .env
-```
+El script genera los secretos locales de cifrado y deja `.env` con permisos
+`600`. No solicita claves de proveedores comerciales.
 
 ### 5.2 Levantar el gateway
 
-```bash
-docker compose -f infra/docker-compose.yml up -d postgres litellm
-docker compose -f infra/docker-compose.yml logs -f litellm
-```
-
-### 5.3 Probar cada modelo, uno por uno
+Las imágenes están fijadas por digest. Para actualizarlas se abre un PR que
+registra la versión y el digest nuevo; no se usa `latest` directamente en la
+VM desatendida.
 
 ```bash
-set -a && source .env && set +a
-
-curl -s http://localhost:4000/health/liveliness
-
-for m in planner backend tester docs reviewer; do
-  echo "── $m ──"
-  curl -s http://localhost:4000/v1/chat/completions \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\":\"$m\",\"messages\":[{\"role\":\"user\",\"content\":\"responde solo: ok\"}]}" \
-    | jq -r '.choices[0].message.content // .error.message'
-done
+docker compose --env-file .env -f infra/docker-compose.yml up -d omniroute
+docker compose --env-file .env -f infra/docker-compose.yml logs -f omniroute
 ```
 
-Si uno falla, es problema **de ese proveedor**: clave, `api_base` o nombre de modelo. Se arregla en `infra/litellm-config.yaml` y se reinicia con `docker compose restart litellm`.
-
-Errores frecuentes → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) y [runbook.md](runbook.md#un-perfil-de-codex-falla).
-
-### 5.4 Claves virtuales con presupuesto por agente
-
-Esto es lo que hace que un agente en bucle queme **su** presupuesto y se detenga solo, sin arrastrar a los demás:
+### 5.3 Crear la clave local y probar la capa gratuita
 
 ```bash
-for a in planner backend tester docs reviewer; do
-  curl -s -X POST http://localhost:4000/key/generate \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"models\":[\"$a\"],\"max_budget\":5,\"budget_duration\":\"30d\",\"key_alias\":\"agente-$a\"}" \
-    | jq -r '"\(.key_alias): \(.key)"'
-done
+./scripts/crear-clave-omniroute.sh
+set -a; source .env; set +a
+curl -fsS http://localhost:20128/api/monitoring/health | jq
+curl -sS http://localhost:20128/v1/chat/completions \
+  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto/coding:free","messages":[{"role":"user","content":"responde solo OK"}]}'
 ```
 
-Guardá esas claves: son las que van a usar los agentes en la Fase 8.
+La respuesta puede ser SSE aunque no se solicite streaming. Confirmá en las
+cabeceras `X-OmniRoute-Response-Cost` que el costo sea cero.
 
-✅ **Fase 5 lista cuando:** los cinco modelos responden `ok` y las claves virtuales existen.
+### 5.4 Conectar Codex Plus
+
+```bash
+tailscale serve --bg --yes 20128
+tailscale serve status
+```
+
+Abrí el panel privado, entrá en **Providers** y conectá **Codex** por OAuth con
+la cuenta ChatGPT Plus. Confirmá también OpenCode Free. No uses Funnel ni
+conectes proveedores con saldo.
+
+✅ **Fase 5 lista cuando:** OmniRoute está saludable, `auto/coding:free`
+responde con costo cero y Codex OAuth aparece conectado.
 
 ---
 
@@ -263,14 +248,28 @@ TELEGRAM_ALLOWED_CHAT_IDS=123456789      # tu chat_id, y nadie más
 
 ## Fase 7 — OpenClaw
 
-> ⚠️ El nombre de la imagen y las variables de OpenClaw **deben confirmarse en su documentación oficial**. El compose de este repo es una plantilla parametrizada, no una configuración probada.
+La imagen fijada en `.env.example` y la configuración siguiente fueron
+validadas con OpenClaw 2026.7.1-2. El token no se escribe en `openclaw.json`:
+queda referenciado desde la variable `TELEGRAM_BOT_TOKEN`.
 
 ```bash
-nano ~/self-hosted-ai-devops/.env    # completar OPENCLAW_IMAGE
 cd ~/self-hosted-ai-devops
-docker compose -f infra/docker-compose.yml up -d
-docker compose -f infra/docker-compose.yml logs -f openclaw
+./scripts/configurar-openclaw.sh
+./scripts/verificar.sh 7
+docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway
 ```
+
+El script fija `gateway.mode=local`, autenticación por token, mensajes directos
+en modo `allowlist` y grupos deshabilitados. También registra OmniRoute por la
+red interna de Docker y selecciona `omniroute/oc/big-pickle`; así OpenClaw no
+contacta directamente a OpenAI ni necesita una clave comercial. La
+configuración persiste en `${OPENCLAW_CONFIG_DIR}/openclaw.json` con permisos
+`600`; las claves solo se referencian desde variables de entorno.
+
+También instala la identidad operativa **Nexo** desde
+`config/openclaw-workspace/`, deshabilita el onboarding genérico y aplica una
+política de herramientas deny-by-default. La cola de issues se habilita solo
+después de registrar el repositorio objetivo.
 
 ### Las dos pruebas de la allowlist
 
@@ -280,7 +279,7 @@ docker compose -f infra/docker-compose.yml logs -f openclaw
 Si la segunda prueba **no** falla como se espera, apagá todo y arreglá la allowlist antes de seguir:
 
 ```bash
-docker compose -f infra/docker-compose.yml down
+docker compose --env-file .env -f infra/docker-compose.yml down
 ```
 
 ✅ **Fase 7 lista cuando:** pasan **las dos** pruebas. Las dos, no solo la primera.
@@ -305,7 +304,9 @@ cp ~/self-hosted-ai-devops/config/codex-config.toml.example ~/.codex/config.toml
 chmod 600 ~/.codex/config.toml
 ```
 
-Los cinco perfiles apuntan al **mismo** proveedor (`gateway` → LiteLLM en `localhost:4000`). Lo que cambia entre ellos es el alias de modelo, y ese alias se resuelve en `litellm-config.yaml`. Cambiar de modelo más adelante no toca este archivo.
+Los perfiles apuntan al mismo proveedor (`omniroute` en `localhost:20128`). Los
+de volumen usan `auto/coding:free`; planificación y revisión pueden aprovechar
+Codex Plus mediante OAuth.
 
 ```bash
 set -a && source ~/self-hosted-ai-devops/.env && set +a
@@ -484,7 +485,22 @@ Borra los worktrees y las ramas ya integradas. Sin esto, `~/worktrees` se llena 
 
 ### 10.5 Conectarlo a OpenClaw
 
-El último paso es que OpenClaw dispare esta secuencia al recibir un mensaje, en vez de hacerla vos a mano:
+El último paso es conectar la cola aislada. Instala las unidades del usuario:
+
+```bash
+./scripts/instalar-runner.sh
+systemctl --user status ai-devops-queue.path ai-devops-queue.timer
+./scripts/control-runner.sh estado
+```
+
+OpenClaw solo ejecuta `solicitar-issue <n>`; el servicio del host realiza el
+ciclo. El contrato y la recuperación están en [flujo-github.md](flujo-github.md).
+
+El `.path` despierta el runner al llegar trabajo y el `.timer` revisa la cola
+una vez por minuto para recuperarse de reinicios o eventos perdidos. Los
+comandos Telegram y la aprobación de dos fases se detallan en
+[ciclo-autonomo.md](ciclo-autonomo.md); no se consideran instalados hasta
+superar sus pruebas de extremo a extremo.
 
 1. `codex --profile planner` → plan en JSON con las subtareas
 2. `./scripts/nueva-tarea.sh <issue>`
@@ -493,7 +509,8 @@ El último paso es que OpenClaw dispare esta secuencia al recibir un mensaje, en
 5. Mandar el link del PR por Telegram
 6. `./scripts/limpiar-worktrees.sh <issue>` al aprobar
 
-> **Pendiente de resolver:** si OpenClaw puede invocar estos comandos directamente o hace falta un wrapper. Se define acá, con el sistema ya funcionando a mano — que es el momento correcto para decidirlo.
+La frontera está implementada mediante una cola local: OpenClaw no ejecuta
+Codex ni recibe las credenciales del runner. Ver [ADR-020](decisiones.md#adr-020--cola-local-entre-openclaw-y-el-runner).
 
 ✅ **Fase 10 lista cuando:** una tarea mandada por Telegram genera tres ramas y **un solo** PR consolidado, sin que toques la PC.
 
@@ -544,10 +561,10 @@ que metiste a propósito.
 | No entra el SSH | ¿Instalaste OpenSSH en la Fase 2? ¿`ufw allow OpenSSH`? |
 | Tailscale no conecta desde el celular | ¿Misma cuenta en ambos lados? ¿Corrió `sudo tailscale up`? |
 | `docker` pide `sudo` | Falta reconectar la sesión SSH tras el `usermod` |
-| LiteLLM no levanta | `docker compose logs litellm`. Suele ser `DATABASE_URL` o Postgres sin arrancar |
-| Un modelo da 404 en LiteLLM | El nombre del modelo cambió → [modelos.md](modelos.md#si-un-modelo-se-descontinúa) |
+| OmniRoute no levanta | `docker compose logs omniroute`; revisar secretos y permisos del volumen |
+| No hay candidatos | Conectar Codex OAuth u otro proveedor gratuito permitido |
 | Un modelo da 401 | Clave mal copiada, o la variable no llegó al contenedor |
-| El bot no responde | `docker compose logs -f openclaw`; revisá el token |
+| El bot no responde | `docker compose --env-file .env -f infra/docker-compose.yml logs -f openclaw-gateway`; revisá el token y la allowlist |
 | El bot responde a desconocidos | 🔴 Pará todo. `TELEGRAM_ALLOWED_CHAT_IDS` mal configurado |
 | Codex da error de `wire_api` | Debe ser `"responses"` y apuntar al gateway, no al proveedor |
 | Chromium no arranca en el contenedor | Falta `--no-sandbox`, o el `shm_size` del compose |

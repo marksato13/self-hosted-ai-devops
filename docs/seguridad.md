@@ -1,6 +1,8 @@
 # Seguridad
 
-Este sistema es una máquina en tu casa que tiene un token de GitHub, cuatro claves de API y permiso para ejecutar comandos, controlada por un bot público de Telegram. Vale la pena dedicarle una página.
+Este sistema es una máquina en tu casa que tiene acceso a GitHub, credenciales
+OAuth cifradas y permiso para ejecutar comandos, controlada por un bot público
+de Telegram. Vale la pena dedicarle una página.
 
 ---
 
@@ -113,11 +115,15 @@ Codex CLI se ejecuta con permisos acotados al workspace. Evitá el modo full-aut
 En `~/.codex/config.toml`:
 
 ```toml
-approval_policy = "on-failure"      # pide confirmación cuando algo falla
+approval_policy = "on-request"      # uso interactivo
 sandbox_mode    = "workspace-write" # escribe solo dentro del workspace
 ```
 
 Confirmá los nombres exactos de estas opciones en la documentación de Codex CLI.
+
+Los perfiles automáticos usan `approval_policy = "never"` porque no hay una
+terminal atendida. Esto no elimina el sandbox: continúan en
+`workspace-write`, con un worktree limitado y sin acceso a los secretos.
 
 ### Los agentes no ven los secretos
 
@@ -187,6 +193,10 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 - [ ] `MAX_RETRIES_PER_TASK` configurado
 - [ ] Snapshot #3 tomado
 - [ ] Sandbox de Codex acotado al workspace
+- [ ] OpenClaw solo puede invocar comandos cerrados; nunca una shell libre
+- [ ] Pausa, recuperación y límite de reintentos probados tras reiniciar
+- [ ] Aprobación Telegram exige segundo factor efímero ligado a PR y SHA
+- [ ] Una confirmación vencida o enviada desde otro `chat_id` no fusiona
 - [ ] *(si hay bucle visual)* El stage con `tailscale serve`, no `funnel`
 
 ---
@@ -202,3 +212,11 @@ Es lo más barato que existe para revertir una configuración que salió mal.
 | `auth.json` de Codex filtrado | `codex logout` en todos lados → cerrar sesión en chatgpt.com → volver a entrar |
 | Un agente escribió algo raro en el repo | `main` está protegida: cerrá el PR sin mergear |
 | La VM se comporta raro | Restaurar el snapshot #3 |
+
+## Aprobaciones desde Telegram
+
+`aprobar PR N` no debe fusionar. Solo genera un resumen y un código efímero. La
+segunda orden queda ligada al `chat_id` autorizado, PR y SHA observado; el
+runner comprueba otra vez la CI y el SHA antes del merge. Los códigos son de un
+solo uso, vencen y nunca se escriben en GitHub ni en logs públicos. Ver
+[ciclo-autonomo.md](ciclo-autonomo.md#aprobación-en-dos-fases).
