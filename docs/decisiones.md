@@ -440,6 +440,65 @@ la ruta gratuita (regla 5 de [modelos.md](modelos.md)).
 
 ---
 
+## ADR-025 — Gemini gratuito y Ollama local agregados a OmniRoute
+
+**Contexto:** tras ADR-024, el bug de `tool_call_id` duplicado de la familia
+`oc/*` (proxy "opencode") seguía bloqueando issue #4 en sesiones con varias
+llamadas a herramientas. Se buscó una ruta gratuita alternativa que no
+dependiera de esa capa de traducción específica.
+
+**Gemini (Google AI Studio):** se conectó una clave gratuita real por la API
+administrativa de OmniRoute (`POST /api/providers`, `provider:"gemini"`,
+`authType:"apikey"`) — no existe UI-only, es una API real y scriptable.
+Hallazgos: `gemini-2.5-flash` está deprecado para cuentas nuevas (404);
+`gemini-3.6-flash` (preview) tiene cuota gratuita casi nula (429 al primer
+uso real); `gemini-2.0-flash-001` funciona pero con límite de peticiones por
+minuto estricto (429 con cooldown de ~60s bajo uso rápido de pruebas). Usable
+como una ruta más en la cadena, no como reemplazo confiable de las gratuitas
+existentes.
+
+**Ollama local (`qwen2.5-coder:3b`):** instalado sin `sudo` (el instalador
+oficial requiere una TTY para la contraseña, no disponible en este canal) y
+corrido como contenedor Docker (`ollama/ollama`) en la red `infra_default`,
+para que OmniRoute lo alcance por nombre de contenedor (`http://ollama:11434`)
+sin cruzar el firewall del host (`ufw` bloqueaba el puerto en el host — mismo
+problema de TTY para `sudo`). Se conectó a OmniRoute como `provider:"openai"`
+con `providerSpecificData.baseUrl` apuntando al Ollama local — OmniRoute no
+tiene un tipo de proveedor `ollama` nativo, pero acepta cualquier endpoint
+compatible con la API de OpenAI bajo el tipo `openai`.
+
+Verificado con la misma prueba de varias llamadas a herramientas que las demás
+rutas: **el tool-calling no funciona** — el modelo escribe un JSON con forma
+de llamada a herramienta como texto plano en vez de invocar la herramienta de
+verdad. Sin pedirle herramientas (JSON directo desde texto), responde
+correctamente. Además es lento en CPU (sin GPU en este host: VMware SVGA
+únicamente): ~25 tokens/seg solo para procesar el prompt. Usa ~2.2 GB de RAM
+cargado, en un host de 7.2 GB compartido con OmniRoute, OpenClaw y el stack de
+NinjaSec — la RAM disponible bajó a ~300 MB libres con el modelo cargado
+durante las pruebas.
+
+**Decisión:** ninguna de las dos rutas se agrega al fallback automático de
+`ejecutar-issue.sh`. Gemini por sus límites de minuto impredecibles bajo uso
+real; Ollama local porque no sirve para los roles que necesitan tool-calling
+(backend, tests, docs) y compite por una RAM ya ajustada. Quedan disponibles
+como override explícito y consciente por tarea:
+
+```bash
+CODEX_PLANNER_MODEL=gemini/gemini-2.0-flash-001 ./scripts/ejecutar-issue.sh N
+CODEX_PLANNER_MODEL=openai/qwen2.5-coder:3b ./scripts/ejecutar-issue.sh N   # solo planificador, sin exploración de archivos
+```
+
+**Consecuencia:** el catálogo de OmniRoute pasó de 3 a 5 conexiones
+(`deepseek`, `moonshot`, `codex`, `gemini`, `openai`→ollama). El contenedor
+`ollama` corre con `restart: unless-stopped` pero **no** forma parte de
+`infra/docker-compose.yml` todavía — quedó creado a mano con `docker run`,
+pendiente de incorporar al compose si se decide mantenerlo. Si se reinicia el
+host, el contenedor `ollama` vuelve solo (policy `unless-stopped`), pero la
+conexión en OmniRoute y el registro en `docker-compose.yml` no están
+sincronizados — revisar antes de asumir que sobrevive un `docker compose down`.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |

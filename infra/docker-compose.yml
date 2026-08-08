@@ -78,5 +78,23 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
+  # Fallback local sin costo ni cuota externa. Solo sirve para texto puro
+  # (perfil planner sin exploración de archivos): su tool-calling no
+  # funciona de verdad — ver ADR-025. No forma parte del fallback
+  # automático de ejecutar-issue.sh; se invoca a mano con
+  # CODEX_PLANNER_MODEL=openai/qwen2.5-coder:3b.
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    mem_limit: 3g
+    volumes:
+      - ${OLLAMA_DATA_DIR:-/home/CAMBIAR/.ollama}:/root/.ollama
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
 volumes:
   omniroute-data:
