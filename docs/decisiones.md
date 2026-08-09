@@ -541,6 +541,42 @@ asumir que sigue bloqueado.
 
 ---
 
+## ADR-027 — Redacción de PII de OmniRoute desactivada
+
+**Contexto:** `PII_REDACTION_ENABLED`/`PII_RESPONSE_SANITIZATION` estaban
+pensados para no filtrar datos reales de clientes en las respuestas del
+proxy. En la práctica se aplicaban también sobre el **código que escriben
+los agentes**, no solo sobre texto conversacional: al escribir un email o
+IP de prueba ficticio en un archivo `.py`, OmniRoute lo reemplazaba por el
+literal `"[EMAIL_REDACTED]"` / `"[IP_REDACTED]"` dentro del archivo real.
+
+Encontrado el 2026-08-09 al fallar `tests/test_hired_application_conversion.py`
+(issue #10 de ninjasec-platform) — comparación `func.lower(User.email) ==
+"[EMAIL_REDACTED]"` nunca podía matchear un valor normalizado a minúsculas.
+Al auditar, la misma contaminación ya estaba en dos PR **ya mergeados**
+(issue #4: `test_topology.py`, IPs; issue #7: `test_file_storage.py`,
+emails) — no habían roto CI porque las comparaciones eran autoconsistentes
+contra el mismo literal, pero eran datos de prueba sin sentido, y en
+`test_topology.py` debilitaban el propósito real del test de enmascarado
+de IPs (el assert de contenido de texto se volvía trivial).
+
+**Decisión:** `PII_REDACTION_ENABLED` y `PII_RESPONSE_SANITIZATION` pasan a
+`false` en `infra/docker-compose.yml`. Los tres archivos afectados se
+corrigieron con datos de prueba realistas (`ninjasec-platform` PR #31 y el
+commit de fix directo en issue #10).
+
+**Consecuencia:** OmniRoute deja de enmascarar cualquier dato con forma de
+email/IP en las respuestas — incluido el caso legítimo que la protección
+buscaba evitar (que un modelo repita un dato real de un cliente). Se acepta
+el trade-off porque: (1) este es un gateway local sin exposición a
+internet, (2) el uso real es casi enteramente generación de fixtures de
+test con datos ficticios, y (3) `INPUT_SANITIZER_ENABLED` (protección
+contra prompt injection, distinta de esta) se mantiene activo. Si en algún
+momento un agente procesa datos reales de un cliente (no ficticios) de
+forma rutinaria, revisar esta decisión.
+
+---
+
 ## Decisiones todavía abiertas
 
 | Pregunta | Estado |
