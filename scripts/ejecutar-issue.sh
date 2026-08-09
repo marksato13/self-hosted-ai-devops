@@ -92,7 +92,7 @@ for modelo in "${PLANNER_MODELS[@]}"; do
     planner_ok=1
     break
   fi
-  if ! grep -qE '429|rate.limit|Too Many Requests' "$planner_log"; then
+  if ! grep -qE '429|rate.limit|Too Many Requests|Duplicate value for .tool_call_id.' "$planner_log"; then
     cat "$planner_log" >&2
     break
   fi
@@ -163,7 +163,7 @@ ejecutar_agente() {
     fi
     # Solo se compara la salida DE ESTE intento: un 429 de un modelo
     # anterior no debe disfrazar un fallo real del siguiente.
-    if ! grep -qE '429|rate.limit|Too Many Requests' "$intento_out"; then
+    if ! grep -qE '429|rate.limit|Too Many Requests|Duplicate value for .tool_call_id.' "$intento_out"; then
       rm -f "$intento_out"
       echo "real" >"$motivo_log"
       return 1
