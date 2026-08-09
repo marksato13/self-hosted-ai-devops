@@ -23,8 +23,13 @@ services:
       INPUT_SANITIZER_ENABLED: "true"
       INPUT_SANITIZER_MODE: block
       INPUT_SANITIZER_BLOCK_THRESHOLD: high
-      PII_REDACTION_ENABLED: "true"
-      PII_RESPONSE_SANITIZATION: "true"
+      # Desactivado 2026-08-09: se aplicaba también sobre el código que
+      # escriben los agentes (no solo texto conversacional), reemplazando
+      # emails/IPs de prueba ficticios por los literales "[EMAIL_REDACTED]"
+      # / "[IP_REDACTED]" dentro de archivos .py reales, rompiendo tests.
+      # Ver ninjasec-platform PR #31 y ADR-027 en docs/decisiones.md.
+      PII_REDACTION_ENABLED: "false"
+      PII_RESPONSE_SANITIZATION: "false"
       AUTH_COOKIE_SECURE: "false"
       TZ: ${TZ:-America/Lima}
     volumes:
