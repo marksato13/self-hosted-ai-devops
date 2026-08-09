@@ -178,7 +178,14 @@ for agente in "${AGENTES[@]}"; do
   perfil="$agente"; [[ "$agente" == tests ]] && perfil=tester
   wt="$(dirname "$TARGET_REPO")/worktrees/issue-${ISSUE}-${agente}"
   jq -r --arg a "$agente" '.subtareas[] | select(.agente == $a) |
-    "Implementa esta subtarea y crea un commit en tu rama.\nDescripción: " +
+    "Implementa esta subtarea y crea un commit en tu rama.\n" +
+    "Tienes 30 minutos en total. No explores el repositorio más de 5 minutos: " +
+    "localiza dónde va el cambio (grep/lectura puntual, no recorrido exhaustivo) " +
+    "y empieza a escribir código enseguida. Prioriza dejar UN commit funcional " +
+    "y acotado al criterio de aceptación antes de pulir nada. Si al minuto 25 " +
+    "no terminaste todo, commitea lo que tengas funcionando en vez de seguir " +
+    "explorando o dejar la tarea sin ningún commit.\n" +
+    "Descripción: " +
     .descripcion + "\nCriterio de aceptación: " + .criterio_aceptacion' \
     "$ESTADO/plan.json" > "$ESTADO/prompt-${agente}.txt"
   # Mismo orden que el planificador: gratis primero, Codex solo si hay
