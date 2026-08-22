@@ -14,6 +14,8 @@ set +a
 source "$REPO_RAIZ/scripts/lib/estado.sh"
 # shellcheck source=scripts/lib/codex-seguro.sh
 source "$REPO_RAIZ/scripts/lib/codex-seguro.sh"
+# shellcheck source=scripts/lib/rutas-modelos.sh
+source "$REPO_RAIZ/scripts/lib/rutas-modelos.sh"
 
 command -v codex >/dev/null || { echo "Falta codex." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
@@ -63,12 +65,16 @@ PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 # Orden pensado para no depender de Codex/ChatGPT: rutas gratuitas de
 # OmniRoute primero, Codex solo como último recurso si hay cuota. Ver
 # docs/decisiones.md — ADR-024.
-PLANNER_MODEL="${CODEX_PLANNER_MODEL:-oc/big-pickle}"
-PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}")
+if [[ -n "${CODEX_PLANNER_MODELS:-}" ]]; then
+  cargar_rutas_modelos "$CODEX_PLANNER_MODELS" PLANNER_MODELS || exit $?
+else
+  PLANNER_MODEL="${CODEX_PLANNER_MODEL:-oc/big-pickle}"
+  PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}")
+fi
 planner_ok=0
 planner_rate_limited=0
 for modelo in "${PLANNER_MODELS[@]}"; do
-  [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
+  modelo_valido "$modelo" || continue
   planner_log="$ESTADO/planner-${modelo//[^a-zA-Z0-9]/_}.log"
   # Sin --output-schema: las rutas gratuitas de OmniRoute devuelven
   # "response_format type is unavailable now" con salida JSON estructurada
@@ -136,7 +142,7 @@ ejecutar_agente() {
   : >"$intento_log"
   rm -f "$motivo_log"
   for modelo in "${modelos[@]}"; do
-    [[ "$modelo" =~ ^[a-z0-9/:.-]+$ ]] || continue
+    modelo_valido "$modelo" || continue
     intento_out="$(mktemp)"
     {
       echo "── $agente con $modelo ──"
@@ -177,11 +183,21 @@ for agente in "${AGENTES[@]}"; do
     .descripcion + "\nCriterio de aceptación: " + .criterio_aceptacion' \
     "$ESTADO/plan.json" > "$ESTADO/prompt-${agente}.txt"
   # Mismo orden que el planificador: gratis primero, Codex solo si hay
-  # cuota y todo lo demás falló. Ver docs/decisiones.md — ADR-024.
+  # cuota y todo lo demás falló. CODEX_<ROL>_MODELS permite definir una
+  # cadena de aliases/combinaciones OmniRoute ya verificados.
   case "$agente" in
-    backend) modelos_agente=("${CODEX_BACKEND_MODEL:-oc/big-pickle}" "${CODEX_BACKEND_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_BACKEND_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}") ;;
-    tests) modelos_agente=("${CODEX_TESTS_MODEL:-oc/big-pickle}" "${CODEX_TESTS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_TESTS_LAST_RESORT_MODEL:-cx/gpt-5.6-terra}") ;;
-    docs) modelos_agente=("${CODEX_DOCS_MODEL:-oc/big-pickle}" "${CODEX_DOCS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_DOCS_LAST_RESORT_MODEL:-cx/gpt-5.5}") ;;
+    backend)
+      if [[ -n "${CODEX_BACKEND_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_BACKEND_MODELS" modelos_agente || exit $?;
+      else modelos_agente=("${CODEX_BACKEND_MODEL:-oc/big-pickle}" "${CODEX_BACKEND_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_BACKEND_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}"); fi
+      ;;
+    tests)
+      if [[ -n "${CODEX_TESTS_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_TESTS_MODELS" modelos_agente || exit $?;
+      else modelos_agente=("${CODEX_TESTS_MODEL:-oc/big-pickle}" "${CODEX_TESTS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_TESTS_LAST_RESORT_MODEL:-cx/gpt-5.6-terra}"); fi
+      ;;
+    docs)
+      if [[ -n "${CODEX_DOCS_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_DOCS_MODELS" modelos_agente || exit $?;
+      else modelos_agente=("${CODEX_DOCS_MODEL:-oc/big-pickle}" "${CODEX_DOCS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_DOCS_LAST_RESORT_MODEL:-cx/gpt-5.5}"); fi
+      ;;
     *) modelos_agente=("${CODEX_AGENT_MODEL:-oc/big-pickle}" "oc/deepseek-v4-flash-free" "cx/gpt-5.6-terra") ;;
   esac
   if (( AGENT_PARALLELISM == 1 )); then

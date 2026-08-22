@@ -116,6 +116,8 @@ se detiene sin generar cargos de API.
 
 Prompts, límites y responsabilidades de cada uno en **[docs/agentes.md](docs/agentes.md)**.
 Comparativa de modelos, proveedores y precios en **[docs/modelos.md](docs/modelos.md)**.
+La topología de routing y dónde levantar cada componente está en
+**[docs/despliegue.md](docs/despliegue.md)**.
 
 ---
 
