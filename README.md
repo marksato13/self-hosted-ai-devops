@@ -46,16 +46,16 @@ flowchart TD
     P --> B["Agente Backend<br/>perfil backend · auto/coding<br/><i>worktree propio</i>"]
     P --> T["Agente de Tests<br/>perfil tester · auto/coding:free<br/><i>worktree propio</i>"]
     P --> D["Agente de Docs<br/>perfil docs · auto/coding:free<br/><i>worktree propio</i>"]
-    B --> R["Agente Revisor<br/>perfil reviewer · auto/coding"]
+    B --> R["Integrador determinista<br/>gitleaks · tests · compose"]
     T --> R
     D --> R
-    R -->|falla algo| P
+    R -->|falla algo| OC
     R -->|todo ok| PR["📦 1 PR en borrador"]
     PR --> OC
     OC -->|link + resumen| U
     U -->|aprueba| M["merge a main"]
 
-    R --> V["👁️ Bucle visual<br/>stage + Chromium headless"]
+    PR --> V["👁️ Bucle visual<br/>stage + Chromium headless"]
     V --> DS["Agente Diseñador<br/>perfil designer · auto/multimodal:free"]
     DS -->|propuestas| B
     V -->|📷 antes / después| OC
@@ -64,11 +64,10 @@ flowchart TD
     T -.-> LL
     D -.-> LL
     P -.-> LL
-    R -.-> LL
     DS -.-> LL
 ```
 
-Los tres agentes del medio trabajan **en paralelo, cada uno en su propio git worktree y su propia rama**. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
+Backend, Tests y Docs pueden trabajar **en paralelo**, cada uno en su propio git worktree y su propia rama. Por seguridad de cuota, la configuración inicial usa `AI_AGENT_CONCURRENCY=1`; aumentala solo después de verificar el límite real del proveedor. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
 
 Todas las llamadas a modelos pasan por **OmniRoute**, que traduce la Responses
 API de Codex, aprovecha la suscripción ChatGPT Plus existente y aplica fallback
@@ -98,7 +97,7 @@ El uso diario, los mensajes automáticos y las formas de aprobación están en e
 
 ---
 
-## Los seis agentes
+## Los seis roles
 
 | Agente | Perfil | Modelo | Para qué | Costo |
 |---|---|---|---|---|
@@ -106,12 +105,12 @@ El uso diario, los mensajes automáticos y las formas de aprobación están en e
 | Backend | `backend` | `auto/coding` | Código de aplicación | Sin costo adicional |
 | Tests | `tester` | `auto/coding:free` | Pruebas automatizadas | Gratis |
 | Docs | `docs` | `auto/coding:free` | Documentación | Gratis |
-| Revisor | `reviewer` | `auto/coding` | Une ramas, valida, abre el PR | Sin costo adicional |
+| Integrador | — | — | Une ramas, valida y abre el PR | Sin costo adicional |
 | Diseñador | `designer` | `auto/multimodal:free` | Revisa capturas y propone CSS | Gratis |
 
 El Diseñador solo entra si la tarea toca interfaz web — ver **[bucle visual](docs/bucle-visual.md)**.
 
-Los perfiles de volumen fuerzan rutas `:free`; Planificador, Backend y Revisor
+Los perfiles de volumen fuerzan rutas `:free`; Planificador y Backend
 pueden usar Codex mediante la suscripción existente. Si no queda cuota, la tarea
 se detiene sin generar cargos de API.
 

@@ -1,6 +1,6 @@
 # Perfiles de los agentes
 
-Los seis roles de la flota. Todos son **el mismo binario** —Codex CLI— invocado con un perfil distinto de `~/.codex/config.toml`. Lo que cambia entre ellos es el modelo, el prompt de sistema, el worktree y los permisos.
+Los seis roles de la flota. Planificador, Backend, Tests, Docs y Diseñador son Codex CLI con perfiles distintos; el Integrador es un script determinista. Lo que cambia entre los agentes es el modelo, el prompt de sistema, el worktree y los permisos.
 
 ---
 
@@ -12,10 +12,10 @@ Los seis roles de la flota. Todos son **el mismo binario** —Codex CLI— invoc
 | 2 | **Backend** | `backend` | `auto/coding` | `issue-<n>-backend/` | `feat/issue-<n>-backend` |
 | 3 | **Tests** | `tester` | `auto/coding:free` | `issue-<n>-tests/` | `test/issue-<n>` |
 | 4 | **Docs** | `docs` | `auto/coding:free` | `issue-<n>-docs/` | `docs/issue-<n>` |
-| 5 | **Revisor** | `reviewer` | `auto/coding` | repo objetivo | `integra/issue-<n>` + PR en borrador |
+| 5 | **Integrador** | — | — | repo objetivo | `integra/issue-<n>` + PR en borrador |
 | 6 | **Diseñador** | `designer` | `auto/multimodal:free` | solo lee capturas | ninguna — propone, no escribe |
 
-Los agentes 2, 3 y 4 corren **en paralelo**, cada uno en su propio git worktree ([ADR-011](decisiones.md#adr-011--git-worktrees-no-clones-por-agente)). Los agentes 1 y 5 conservan perfiles distintos aunque OmniRoute pueda elegir el mismo proveedor.
+Los agentes 2, 3 y 4 tienen worktrees independientes y corren en paralelo solo si `AI_AGENT_CONCURRENCY` es mayor que 1. El valor inicial es 1 para no superar la cuota del proveedor.
 
 > Los perfiles apuntan a categorías dinámicas de OmniRoute. `auto/coding`
 > puede usar Codex Plus; `auto/coding:free` restringe el trabajo a capas gratuitas.
@@ -146,45 +146,20 @@ Reglas:
 
 ---
 
-## 5. Agente Revisor
+## 5. Integrador determinista
 
-**Perfil:** `reviewer` · **Ruta:** `auto/coding` · **Costo adicional:** USD 0
+**Implementación:** [`scripts/integrar.sh`](../scripts/integrar.sh) · **Costo adicional:** USD 0
 
-El portero. Es lo único que separa el trabajo de tres modelos baratos de la rama principal.
+La barrera antes de que una persona reciba el PR. No es un agente LLM: ejecuta pasos repetibles y deja los conflictos para una persona.
 
 **Hace:**
-- Une las tres ramas en `integra/issue-<n>` y resuelve los conflictos.
+- Une las ramas existentes en `integra/issue-<n>`.
 - Corre la suite completa de tests.
-- Verifica cada criterio de aceptación del plan original.
-- Si algo falla, devuelve la subtarea al agente que corresponda, **con un máximo de 2 reintentos**.
+- Declara el resultado de tests y verificaciones en el PR.
+- Ante un conflicto o un test fallido se detiene y reporta el fallo; no inventa una resolución.
 - Si todo pasa, abre **un solo** Pull Request con el resumen de los cambios.
 
 **No hace:** **mergear a `main`**. Eso lo autoriza siempre una persona ([ADR-009](decisiones.md#adr-009--el-merge-lo-aprueba-una-persona)).
-
-**Prompt de sistema (base):**
-
-```text
-Eres el Agente Revisor. Eres la última barrera antes de que el código
-llegue a una persona.
-
-Proceso:
-1. Unir las ramas de los agentes en integra/issue-<n>.
-2. Resolver conflictos. Si un conflicto es ambiguo, escalar al usuario.
-3. Correr la suite completa de tests.
-4. Verificar UNO POR UNO los criterios de aceptación del plan.
-5. Revisar que no haya secretos, claves ni rutas absolutas en el diff.
-
-Si algo falla:
-- Devolver la subtarea al agente responsable con el error concreto.
-- Máximo 2 reintentos por subtarea. Al tercero, parar y avisar al usuario.
-
-Si todo pasa:
-- Abrir UN SOLO Pull Request contra main.
-- El cuerpo del PR incluye: qué se hizo, qué agente hizo qué,
-  resultado de los tests y qué quedó fuera.
-
-NUNCA hagas merge a main. Esa decisión es del usuario.
-```
 
 ---
 
@@ -251,7 +226,7 @@ Los tres primeros son independientes entre sí y atrapan fallas distintas: reint
 
 ## Cómo se invoca cada perfil
 
-Los tres agentes en paralelo corren **cada uno en su worktree**:
+Los tres agentes pueden correr en paralelo, cada uno en su worktree, cuando la cuota permite configurar `AI_AGENT_CONCURRENCY` mayor que 1:
 
 ```bash
 WT=~/workspace/worktrees
@@ -262,11 +237,10 @@ WT=~/workspace/worktrees
 wait
 ```
 
-El Planificador y el Revisor corren en el repo principal:
+El Planificador corre en el repo principal:
 
 ```bash
 codex --profile planner  "…"
-codex --profile reviewer "…"
 ```
 
 El Diseñador se invoca distinto: con imágenes adjuntas.
@@ -275,7 +249,7 @@ El Diseñador se invoca distinto: con imágenes adjuntas.
 codex --profile designer -i captura-movil.png -i captura-escritorio.png "…"
 ```
 
-Los worktrees se crean con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y el trabajo del Revisor está automatizado en [`scripts/integrar.sh`](../scripts/integrar.sh). Los perfiles salen de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).
+Los worktrees se crean con [`scripts/nueva-tarea.sh`](../scripts/nueva-tarea.sh) y el trabajo del Integrador está automatizado en [`scripts/integrar.sh`](../scripts/integrar.sh). Los perfiles salen de la plantilla [`config/codex-config.toml.example`](../config/codex-config.toml.example).
 
 > **Implementado:** OpenClaw escribe una solicitud numérica mediante
 > `solicitar-issue`; el runner del host procesa la cola. Ver

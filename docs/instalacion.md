@@ -468,7 +468,7 @@ Los códigos de salida dicen qué falló:
 
 | Código | Significa |
 |---|---|
-| 2 | Conflicto de merge — el Revisor debe resolverlo o escalar |
+| 2 | Conflicto de merge — el integrador se detiene y se escala a una persona |
 | 3 | 🔴 Secreto detectado — no se abre el PR |
 | 4 | Tests fallaron — vuelve al agente correspondiente |
 | 5 | `docker-compose` inválido |

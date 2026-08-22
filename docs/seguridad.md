@@ -125,6 +125,12 @@ Los perfiles automáticos usan `approval_policy = "never"` porque no hay una
 terminal atendida. Esto no elimina el sandbox: continúan en
 `workspace-write`, con un worktree limitado y sin acceso a los secretos.
 
+El runner comprueba que el host pueda usar user namespaces antes de arrancar.
+Si no puede crear el sandbox, falla cerrado: no habilita
+`danger-full-access` como alternativa. Además, al invocar Codex hereda solo
+`OMNIROUTE_API_KEY`; el token de GitHub y las credenciales de Telegram quedan
+fuera de su entorno.
+
 ### Los agentes no ven los secretos
 
 Ningún agente necesita leer `.env`. Las claves las consume Codex CLI desde variables de entorno; los agentes trabajan sobre el código, no sobre la configuración. Mantené `.env` fuera de cualquier ruta que los agentes tengan permitida.

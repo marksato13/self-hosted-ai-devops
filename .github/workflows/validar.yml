@@ -23,7 +23,7 @@ jobs:
           done
       - name: Analizar Bash
         # El repositorio heredó avisos de estilo; CI bloquea errores reales.
-        run: shellcheck --severity=error scripts/*.sh tests/*.sh
+        run: shellcheck --severity=error scripts/*.sh scripts/lib/*.sh tests/*.sh
       - name: Validar Compose
         run: docker compose --env-file .env.example -f infra/docker-compose.yml -f infra/docker-compose.visual.yml config -q
       - name: Validar archivos estructurados

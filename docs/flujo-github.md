@@ -46,8 +46,9 @@ un bloqueo exclusivo y ejecuta `scripts/ejecutar-issue.sh`:
 1. Lee el issue mediante `gh issue view` y exige que esté abierto.
 2. El Planificador produce JSON validado con `config/plan.schema.json`.
 3. Solo se crean los worktrees que aparecen en el plan.
-4. Backend, Tests y Docs corren mediante `codex exec`, en paralelo y con tiempo
-   máximo. Los perfiles de volumen usan rutas gratuitas de OmniRoute.
+4. Backend, Tests y Docs corren mediante `codex exec`, con tiempo máximo. Son
+   paralelos solo si `AI_AGENT_CONCURRENCY` es mayor que 1; el valor inicial es
+   1 para respetar las cuotas de OmniRoute.
 5. El integrador exige Gitleaks, ejecuta las pruebas detectadas, valida Compose
    y abre un único PR en borrador.
 
