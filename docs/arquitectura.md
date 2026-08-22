@@ -101,7 +101,7 @@ sequenceDiagram
     participant B as Backend (auto/coding)
     participant T as Tests (auto/coding:free)
     participant D as Docs (auto/coding:free)
-    participant R as Revisor (auto/coding)
+    participant R as Integrador determinista
     participant G as GitHub
 
     U->>O: "avanza el issue #12"
@@ -109,7 +109,7 @@ sequenceDiagram
     P->>G: lee el issue #12
     P-->>O: plan en 3 subtareas (JSON)
     O->>O: nueva-tarea.sh 12<br/>crea 3 worktrees
-    par En paralelo, cada uno en su worktree
+    par Si AI_AGENT_CONCURRENCY es mayor que 1, cada uno en su worktree
         O->>B: subtarea backend
         B->>G: push a feat/issue-12-backend
     and
@@ -119,12 +119,12 @@ sequenceDiagram
         O->>D: subtarea docs
         D->>G: push a docs/issue-12
     end
-    O->>R: las 3 ramas están listas
+    O->>R: las ramas están listas
     R->>R: integrar.sh 12<br/>une las ramas (local, sin GitHub)
     R->>R: gitleaks + tests + compose
     alt Falla algo
         R-->>O: reporte del fallo concreto
-        O->>B: corregir (máx. 2 reintentos)
+        O-->>U: reporte del fallo para corrección humana
     else Todo pasa
         R->>G: abre 1 PR en BORRADOR
         R-->>O: link del PR + resumen
@@ -170,7 +170,7 @@ Reglas, sin excepciones:
 |---|---|
 | Un agente = una rama | Evita que dos modelos se pisen el mismo archivo |
 | Nadie hace push a `main` | `main` está protegida en GitHub |
-| El Revisor es el único que integra | Un solo punto donde se resuelven los conflictos |
+| El integrador es el único que integra | Un solo punto de validación; los conflictos se escalan |
 | **El merge final lo aprueba una persona** | El humano es el freno de mano del sistema |
 | Máximo 2 reintentos por subtarea | Un bucle infinito quema créditos de madrugada |
 
@@ -186,7 +186,7 @@ El costo no se reparte parejo. Planificar y revisar consume **pocos tokens pero 
 pie showData
     title Reparto aproximado de tokens
     "Ejecutores (modelos baratos)" : 85
-    "Planificador + Revisor (Codex/alta calidad)" : 15
+    "Planificador (Codex/alta calidad)" : 15
 ```
 
 De ahí sale el ahorro: el 85 % del volumen se procesa con modelos baratos o gratis, y el modelo caro —que además ya está pagado dentro de ChatGPT Plus— se reserva para las dos etapas donde equivocarse sale caro.
@@ -246,7 +246,7 @@ de un issue se convierta directamente en un comando del sistema.
 | Un agente se cuelga sin reintentar ni terminar | Matarlo y avisar | `TASK_TIMEOUT_MINUTES` |
 | Un agente consume de más | Cortar reintentos y concurrencia | Límites del runner y OmniRoute |
 | Se cae un proveedor | Elegir otra cuota gratuita | `auto/*:free` en OmniRoute |
-| Conflicto de merge entre ramas | El Revisor lo resuelve; si es ambiguo, escala al usuario | `scripts/integrar.sh` sale con código 2 |
+| Conflicto de merge entre ramas | Se detiene y escala al usuario | `scripts/integrar.sh` sale con código 2 |
 | Un agente commitea una clave | Bloquear el commit antes de que exista | Gitleaks en pre-commit + verificación en `integrar.sh` |
 | Un agente intenta escribir en `main` | Rechazarlo | Branch protection + hook `no-commit-to-branch` |
 | Un desconocido escribe al bot | Ignorarlo | 🔴 Allowlist de `chat_id` — ver [seguridad.md](seguridad.md) |

@@ -12,26 +12,14 @@ set +a
 
 # shellcheck source=scripts/lib/estado.sh
 source "$REPO_RAIZ/scripts/lib/estado.sh"
+# shellcheck source=scripts/lib/codex-seguro.sh
+source "$REPO_RAIZ/scripts/lib/codex-seguro.sh"
 
 command -v codex >/dev/null || { echo "Falta codex." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
 command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
-
-# Algunas VMs (incluido este host) deshabilitan user namespaces y bubblewrap no
-# puede crear el sandbox aunque Codex esté instalado correctamente. Conservamos
-# el sandbox cuando es viable; en ese entorno concreto usamos el modo completo
-# sobre el repositorio objetivo, que ya está aislado por el servicio systemd.
-codex_sandbox() {
-  local solicitado="$1"
-  if [[ -n "${CODEX_SANDBOX_MODE:-}" ]]; then
-    printf '%s' "$CODEX_SANDBOX_MODE"
-  elif unshare -Ur true >/dev/null 2>&1; then
-    printf '%s' "$solicitado"
-  else
-    echo "Aviso: user namespaces no disponibles; Codex usará danger-full-access en este host." >&2
-    printf '%s' danger-full-access
-  fi
-}
+SANDBOX_PLAN="$(codex_sandbox read-only)" || exit $?
+SANDBOX_WORKSPACE="$(codex_sandbox workspace-write)" || exit $?
 
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
@@ -87,7 +75,7 @@ for modelo in "${PLANNER_MODELS[@]}"; do
   # (confirmado 2026-08-08, ver ADR-024). El prompt ya pide JSON estricto y
   # se valida más abajo; si el modelo lo envuelve en markdown, se limpia
   # antes de validar.
-  if timeout "$TIMEOUT" codex exec -p planner -m "$modelo" -s "$(codex_sandbox read-only)" -C "$TARGET_REPO" \
+  if timeout "$TIMEOUT" codex_ejecutar_aislado exec -p planner -m "$modelo" -s "$SANDBOX_PLAN" -C "$TARGET_REPO" \
       -o "$ESTADO/plan.json" - < "$PROMPT_PLAN" >"$planner_log" 2>&1; then
     planner_ok=1
     break
@@ -152,7 +140,7 @@ ejecutar_agente() {
     intento_out="$(mktemp)"
     {
       echo "── $agente con $modelo ──"
-      timeout "$TIMEOUT" codex exec -p "$perfil" -m "$modelo" -s "$(codex_sandbox workspace-write)" -C "$wt" \
+      timeout "$TIMEOUT" codex_ejecutar_aislado exec -p "$perfil" -m "$modelo" -s "$SANDBOX_WORKSPACE" -C "$wt" \
         -o "$ESTADO/resultado-${agente}.txt" - < "$ESTADO/prompt-${agente}.txt"
     } >"$intento_out" 2>&1
     rc=$?
