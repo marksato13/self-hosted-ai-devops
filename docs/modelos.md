@@ -38,12 +38,39 @@ mano. Ver **[ADR-024](decisiones.md#adr-024--orden-de-modelos-por-rol-gratis-pri
 | Backend | `backend` | igual orden (`CODEX_BACKEND_*`) | USD 0 salvo agotar ambas rutas gratis |
 | Tests | `tester` | igual orden, último recurso `cx/gpt-5.6-terra` (`CODEX_TESTS_*`) | USD 0 salvo agotar ambas rutas gratis |
 | Docs | `docs` | igual orden, último recurso `cx/gpt-5.5` (`CODEX_DOCS_*`) | USD 0 salvo agotar ambas rutas gratis |
-| Revisor | `reviewer` | perfil `auto/coding` (sin override propio todavía) | USD 0; Codex Plus o fallback gratuito |
+| Integrador | — | no llama un modelo: ejecuta validaciones deterministas | USD 0 |
 | Diseñador | `designer` | perfil `auto/multimodal:free` | USD 0 |
 
 Cada rol prueba primero la ruta gratuita; si responde `429`, pasa a la
 siguiente de la lista. Un fallo que no sea `429` (código roto, prueba que no
 pasa) corta el intento ahí — no se enmascara probando otro modelo.
+
+## Cadenas de routers configurables
+
+Los cuatro roles ejecutores admiten una cadena explícita en `.env` mediante
+`CODEX_<ROL>_MODELS`. Cada elemento es un identificador del catálogo local de
+OmniRoute: puede ser un modelo directo (`cx/...`, `oc/...`) o un alias de
+combinación creado en el dashboard (`combo/...`). Así se puede usar más de un
+router sin modificar scripts ni activar proveedores no verificados.
+
+```env
+# Activar solo después de crear los aliases y comprobarlos.
+CODEX_PLANNER_MODELS=combo/planner,cx/gpt-5.6-sol,oc/big-pickle
+CODEX_BACKEND_MODELS=combo/coding,cx/gpt-5.6-sol,oc/big-pickle
+CODEX_TESTS_MODELS=combo/fast,cx/gpt-5.6-terra,oc/deepseek-v4-flash-free
+CODEX_DOCS_MODELS=combo/fast,cx/gpt-5.5,oc/deepseek-v4-flash-free
+```
+
+Antes de activar el modo autónomo, verificá los nombres sin enviar un prompt:
+
+```bash
+./scripts/verificar-rutas-modelos.sh
+```
+
+Una ruta ausente hace que el verificador falle. Si las variables permanecen
+vacías, se conserva el orden seguro actual. No agregues Kimi, DeepSeek,
+OpenRouter, Claude o Gemini a una cadena hasta conectar la cuenta, revisar la
+retención de datos y confirmar costo y tool-calling en OmniRoute.
 
 ## Qué significa gratuito
 
