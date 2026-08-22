@@ -23,8 +23,10 @@ REPO_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$REPO_RAIZ/.env}"
 [[ -f "$ENV_FILE" ]] || { echo "Falta el archivo de entorno del notificador." >&2; exit 1; }
 set -a; source "$ENV_FILE"; set +a
+# shellcheck source=scripts/lib/secretos.sh
+source "$REPO_RAIZ/scripts/lib/secretos.sh"
 
-: "${TELEGRAM_BOT_TOKEN:?falta TELEGRAM_BOT_TOKEN en .env}"
+secreto_cargar TELEGRAM_BOT_TOKEN telegram_bot_token
 : "${TELEGRAM_ALLOWED_CHAT_IDS:?falta TELEGRAM_ALLOWED_CHAT_IDS en .env}"
 
 # El informe va SOLO a los chat_id de la allowlist: el mismo
@@ -97,7 +99,7 @@ case "${WHATSAPP_MODO:-off}" in
   #    falta una plantilla aprobada. Un informe de madrugada
   #    puede NO llegar. Por eso el canal principal es Telegram.
   cloud)
-    : "${WHATSAPP_TOKEN:?falta WHATSAPP_TOKEN}"
+    secreto_cargar WHATSAPP_TOKEN whatsapp_token
     : "${WHATSAPP_PHONE_ID:?falta WHATSAPP_PHONE_ID}"
     : "${WHATSAPP_DESTINO:?falta WHATSAPP_DESTINO}"
     G="https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_ID}"
@@ -125,19 +127,6 @@ case "${WHATSAPP_MODO:-off}" in
         -d "$(jq -n --arg to "$WHATSAPP_DESTINO" --arg t "$MENSAJE" \
               '{messaging_product:"whatsapp",to:$to,type:"text",text:{body:$t}}')" || ((FALLOS++))
     fi
-    ;;
-
-  # --- Canal de WhatsApp de OpenClaw -----------------------
-  # ⚠️ PLANTILLA. Confirmar la URL y el cuerpo exactos en la
-  #    documentación de OpenClaw antes de usar. Ver ADR-016:
-  #    usar un número secundario, nunca el personal.
-  openclaw)
-    : "${OPENCLAW_NOTIFY_URL:?falta OPENCLAW_NOTIFY_URL}"
-    curl -sS -o /dev/null -X POST "$OPENCLAW_NOTIFY_URL" \
-      -H "Content-Type: application/json" \
-      -d "$(jq -n --arg canal whatsapp --arg t "$MENSAJE" \
-            --argjson img "$(printf '%s\n' "${IMAGENES[@]:-}" | jq -R . | jq -s .)" \
-            '{canal:$canal,texto:$t,imagenes:$img}')" || ((FALLOS++))
     ;;
 
   *) echo "WHATSAPP_MODO desconocido: ${WHATSAPP_MODO}" >&2; ((FALLOS++)) ;;

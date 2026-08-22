@@ -41,15 +41,15 @@ Sin nube. Sin abrir puertos en el router. Sin prender la PC.
 
 ```mermaid
 flowchart TD
-    U["📱 Usuario<br/>(Telegram)"] --> OC["🧠 OpenClaw<br/>orquestador · Docker"]
-    OC --> P["Agente Planificador<br/>perfil planner · auto/coding"]
+    U["📱 Usuario<br/>(Telegram)"] --> OC["🔒 Bot de control<br/>Docker · comandos cerrados"]
+    OC --> P["Agente Planificador<br/>perfil planner"]
     P --> B["Agente Backend<br/>perfil backend · auto/coding<br/><i>worktree propio</i>"]
     P --> T["Agente de Tests<br/>perfil tester · auto/coding:free<br/><i>worktree propio</i>"]
     P --> D["Agente de Docs<br/>perfil docs · auto/coding:free<br/><i>worktree propio</i>"]
     B --> R["Integrador determinista<br/>gitleaks · tests · compose"]
     T --> R
     D --> R
-    R -->|falla algo| OC
+    R -->|estado| OC
     R -->|todo ok| PR["📦 1 PR en borrador"]
     PR --> OC
     OC -->|link + resumen| U
@@ -60,7 +60,7 @@ flowchart TD
     DS -->|propuestas| B
     V -->|📷 antes / después| OC
 
-    B -.-> LL["⚙️ OmniRoute<br/>gateway · cuotas gratuitas"]
+    B -.-> LL["⚙️ LiteLLM<br/>gateway · aliases por rol"]
     T -.-> LL
     D -.-> LL
     P -.-> LL
@@ -69,9 +69,9 @@ flowchart TD
 
 Backend, Tests y Docs pueden trabajar **en paralelo**, cada uno en su propio git worktree y su propia rama. Por seguridad de cuota, la configuración inicial usa `AI_AGENT_CONCURRENCY=1`; aumentala solo después de verificar el límite real del proveedor. Nunca escriben en `main`: el merge lo autoriza siempre una persona.
 
-Todas las llamadas a modelos pasan por **OmniRoute**, que traduce la Responses
-API de Codex, aprovecha la suscripción ChatGPT Plus existente y aplica fallback
-entre proveedores gratuitos. No se mantienen saldos ni claves comerciales.
+Todas las llamadas a modelos pasan por **LiteLLM**, que presenta un endpoint
+OpenAI-compatible con aliases por rol. Las claves de proveedores se guardan
+fuera de `.env`, en archivos de secreto privados.
 
 Detalle completo en **[docs/arquitectura.md](docs/arquitectura.md)**.
 El contrato operativo de Telegram, recuperación y aprobación está en
@@ -87,12 +87,12 @@ El uso diario, los mensajes automáticos y las formas de aprobación están en e
 |---|---|---|
 | Hipervisor | VMware ESXi 8.0 U3e (gratuito) | Hardware propio, sin costo de nube |
 | Sistema operativo | **Ubuntu Server 24.04 LTS** | VM headless — [por qué Server y no Desktop](docs/decisiones.md#adr-006--ubuntu-server-y-no-ubuntu-desktop) |
-| Orquestador | OpenClaw (Docker) | Escucha Telegram, reparte tareas |
-| Gateway de modelos | OmniRoute (Docker) | Traduce APIs, enruta cuotas gratuitas y registra uso |
+| Control Telegram | Bot determinista (Docker) | Valida allowlist y escribe órdenes cerradas en cola |
+| Gateway de modelos | LiteLLM (Docker) | Endpoint OpenAI-compatible, aliases y límites |
 | Ejecutor de código | Codex CLI | Único ejecutor, 5 perfiles de agente |
 | Aislamiento | Git worktrees | Cada agente en su directorio, un solo `.git` |
 | Red remota | Tailscale | SSH desde el celular sin exponer el router |
-| Repositorio | GitHub + PAT de alcance mínimo | Ramas, commits y PRs |
+| Repositorio | GitHub App | Tokens efímeros, ramas, commits y PRs |
 | Guardarraíles | Gitleaks + pre-commit | Impide que un agente commitee una clave |
 
 ---
@@ -136,7 +136,7 @@ La topología de routing y dónde levantar cada componente está en
 | [docs/telegram.md](docs/telegram.md) | **Manual de Telegram:** mensajes automáticos, aprobación individual o por lote y ejemplos completos |
 | [docs/agentes.md](docs/agentes.md) | Perfil, prompt de sistema y límites de cada agente |
 | [docs/modelos.md](docs/modelos.md) | Modelos, proveedores, endpoints y topes de gasto |
-| [docs/omniroute.md](docs/omniroute.md) | Gateway gratuito, seguridad, autenticación y recuperación |
+| [docs/despliegue.md](docs/despliegue.md) | **Arquitectura actual:** bot cerrado, LiteLLM, GitHub App y secretos |
 | [docs/registro-proveedores-ia.md](docs/registro-proveedores-ia.md) | Registro paso a paso y almacenamiento seguro de claves de API |
 | [docs/proyectos-referencia.md](docs/proyectos-referencia.md) | **Qué se copió del ecosistema open source y por qué** |
 | [docs/decisiones.md](docs/decisiones.md) | ADRs: ESXi, OmniRoute, seguridad, worktrees y operación |

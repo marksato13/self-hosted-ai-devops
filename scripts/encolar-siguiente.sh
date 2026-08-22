@@ -17,6 +17,9 @@ command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
 
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
+# shellcheck source=scripts/lib/github-app.sh
+source "$REPO_RAIZ/scripts/lib/github-app.sh"
+github_configurar_token
 QUEUE="${AI_QUEUE_DIR:-$HOME/.local/state/ai-devops/queue}"
 mkdir -p "$QUEUE"
 

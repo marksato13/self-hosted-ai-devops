@@ -1,45 +1,23 @@
-# Stack autohospedado: OmniRoute gratuito + OpenClaw.
-# Los puertos solo escuchan en loopback; el acceso remoto usa Tailscale.
-
+# Control de producción: bot determinista y gateway OpenAI-compatible.
+# Los secretos se montan desde ${AI_SECRETS_DIR}; no se guardan en .env.
 services:
-  omniroute:
-    # Imagen publicada 3.8.49; manifiesto amd64 fijado por digest.
-    image: diegosouzapw/omniroute@sha256:2bf79cf167478bf283c633ffef2e1e26ba746882e7267fab9320c09df56e8b57
-    container_name: omniroute
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: litellm
     restart: unless-stopped
-    stop_grace_period: 40s
+    entrypoint: ["/bin/sh", "/app/entrypoint.sh"]
     environment:
-      NODE_ENV: production
-      PORT: "20128"
-      HOSTNAME: 0.0.0.0
-      DATA_DIR: /app/data
-      JWT_SECRET: ${OMNIROUTE_JWT_SECRET}
-      API_KEY_SECRET: ${OMNIROUTE_API_KEY_SECRET}
-      STORAGE_ENCRYPTION_KEY: ${OMNIROUTE_STORAGE_ENCRYPTION_KEY}
-      STORAGE_ENCRYPTION_KEY_VERSION: v1
-      INITIAL_PASSWORD: ${OMNIROUTE_INITIAL_PASSWORD}
-      OMNIROUTE_MEMORY_MB: "1024"
-      OMNI_MAX_CONCURRENT_CONNECTIONS: "40"
-      INPUT_SANITIZER_ENABLED: "true"
-      INPUT_SANITIZER_MODE: block
-      INPUT_SANITIZER_BLOCK_THRESHOLD: high
-      # Desactivado 2026-08-09: se aplicaba también sobre el código que
-      # escriben los agentes (no solo texto conversacional), reemplazando
-      # emails/IPs de prueba ficticios por los literales "[EMAIL_REDACTED]"
-      # / "[IP_REDACTED]" dentro de archivos .py reales, rompiendo tests.
-      # Ver ninjasec-platform PR #31 y ADR-027 en docs/decisiones.md.
-      PII_REDACTION_ENABLED: "false"
-      PII_RESPONSE_SANITIZATION: "false"
-      AUTH_COOKIE_SECURE: "false"
-      TZ: ${TZ:-America/Lima}
+      TZ: ${TZ:-America/Bogota}
     volumes:
-      - omniroute-data:/app/data
+      - ./litellm/config.yaml:/app/config.yaml:ro
+      - ./litellm/entrypoint.sh:/app/entrypoint.sh:ro
+    secrets: [litellm_master_key, openai_api_key, anthropic_api_key, openrouter_api_key]
     ports:
-      - "127.0.0.1:${OMNIROUTE_PORT:-20128}:20128"
+      - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     healthcheck:
-      test: ["CMD", "node", "healthcheck.mjs"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://127.0.0.1:4000/health/liveliness\")'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -48,58 +26,56 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  openclaw-gateway:
-    image: ${OPENCLAW_IMAGE}
-    container_name: openclaw-gateway
+  telegram-control:
+    build:
+      context: ./telegram-control
+    container_name: telegram-control
     init: true
     restart: unless-stopped
     depends_on:
-      omniroute:
+      litellm:
         condition: service_healthy
     environment:
-      HOME: /home/node
-      OPENCLAW_HOME: /home/node
-      OPENCLAW_STATE_DIR: /home/node/.openclaw
-      OPENCLAW_CONFIG_PATH: /home/node/.openclaw/openclaw.json
-      OPENCLAW_CONFIG_DIR: /home/node/.openclaw
-      OPENCLAW_WORKSPACE_DIR: /home/node/.openclaw/workspace
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      OPENCLAW_DISABLE_BONJOUR: "1"
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
       AI_QUEUE_DIR: /queue
-      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY}
-      TZ: ${TZ:-America/Lima}
+      TELEGRAM_STATE_DIR: /state
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      TELEGRAM_ALLOWED_CHAT_IDS: ${TELEGRAM_ALLOWED_CHAT_IDS}
+      TZ: ${TZ:-America/Bogota}
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${AI_QUEUE_DIR:-/home/CAMBIAR/.local/state/ai-devops/queue}:/queue
-      - ../config/openclaw-plugins/flota-control:/opt/openclaw-plugins/flota-control:ro
-    ports:
-      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
+      - telegram-control-state:/state
+    secrets: [telegram_bot_token]
+    read_only: true
+    tmpfs: ["/tmp"]
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  # Fallback local sin costo ni cuota externa. Solo sirve para texto puro
-  # (perfil planner sin exploración de archivos): su tool-calling no
-  # funciona de verdad — ver ADR-025. No forma parte del fallback
-  # automático de ejecutar-issue.sh; se invoca a mano con
-  # CODEX_PLANNER_MODEL=openai/qwen2.5-coder:3b.
+  # Opcional y manual: no se usa como fallback automático de código.
   ollama:
     image: ollama/ollama
     container_name: ollama
     restart: unless-stopped
+    profiles: ["local-models"]
     mem_limit: 3g
     volumes:
       - ${OLLAMA_DATA_DIR:-/home/CAMBIAR/.ollama}:/root/.ollama
     ports:
       - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+
+secrets:
+  telegram_bot_token:
+    file: ${AI_SECRETS_DIR}/telegram_bot_token
+  litellm_master_key:
+    file: ${AI_SECRETS_DIR}/litellm_master_key
+  openai_api_key:
+    file: ${AI_SECRETS_DIR}/openai_api_key
+  anthropic_api_key:
+    file: ${AI_SECRETS_DIR}/anthropic_api_key
+  openrouter_api_key:
+    file: ${AI_SECRETS_DIR}/openrouter_api_key
 
 volumes:
-  omniroute-data:
+  telegram-control-state:

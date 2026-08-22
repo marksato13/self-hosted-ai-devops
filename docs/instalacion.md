@@ -1,5 +1,10 @@
 # Instalación paso a paso
 
+> **Histórico (v1):** este documento conserva el procedimiento basado en
+> OmniRoute y OpenClaw. No lo ejecutes para instalaciones nuevas. Usá
+> [despliegue.md](despliegue.md), que describe LiteLLM, GitHub App, archivos
+> de secreto y `telegram-control`.
+
 De un ESXi vacío a una flota de cinco agentes abriendo Pull Requests desde el celular.
 
 **Tiempo estimado:** 5 a 6 horas repartidas, la mayor parte esperando descargas.

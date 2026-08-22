@@ -1,109 +1,95 @@
-# Despliegue y topología de la flota
+# Despliegue de producción
 
-Esta flota es **autohospedada en control y ejecución**, no en inferencia: el
-runner y las credenciales viven en tu máquina, pero Telegram, GitHub y los
-modelos conectados a OmniRoute son servicios externos. Separar esas capas evita
-confundir un gateway local con un modelo local.
+La versión actual separa las decisiones de IA del plano de control. Telegram
+solo admite comandos cerrados; el runner es el único proceso que usa GitHub,
+worktrees y Codex.
 
-## Componentes y responsabilidad
+```mermaid
+flowchart LR
+  T[Telegram] --> B[telegram-control\nbot determinista]
+  B --> Q[cola local]
+  Q --> R[runner systemd]
+  R --> W[worktrees aislados]
+  W --> P[PR borrador]
+  R --> G[GitHub App\ntoken efímero]
+  R --> L[LiteLLM local]
+  L --> M[Codex · Claude · OpenRouter]
+```
 
-| Componente | Dónde corre | Responsabilidad | No debe hacer |
-|---|---|---|---|
-| Telegram | servicio externo | recibe órdenes y entrega avisos | ejecutar comandos del texto recibido |
-| OpenClaw | contenedor Docker | valida remitente y escribe una orden cerrada en la cola | montar el repo objetivo o tener shell |
-| Cola | volumen/directorio local | desacopla Telegram del trabajo y permite recuperación | aceptar contenido no validado |
-| Runner `systemd` | host Linux | toma un issue, crea worktrees y controla reintentos | usar `danger-full-access` |
-| Codex CLI | host Linux, sandbox | planifica o edita una subtarea en un worktree | heredar tokens de GitHub o Telegram |
-| OmniRoute | contenedor Docker | catálogo, aliases `combo/*`, cuotas y fallback entre proveedores | decidir merges o guardar secretos en Git |
-| Integrador | host Linux | une ramas, ejecuta Gitleaks/tests/Compose y abre PR borrador | resolver conflictos ambiguos o fusionar `main` |
-| GitHub Actions | GitHub | repite la validación en un entorno limpio | sustituir la revisión humana |
-| Tailscale | host Linux | acceso privado a SSH y al stage | publicar el stage mediante Funnel |
+## Componentes
 
-La ruta de confianza es: **Telegram → OpenClaw → cola → runner → worktree →
-PR**. Las respuestas de modelos nunca cruzan directamente desde Telegram hasta
-una shell.
-
-## Routing de modelos
-
-OmniRoute es el único gateway de la flota. Dentro de él conectá proveedores y
-creá aliases `combo/*` por propósito, no por marca de modelo:
-
-| Alias sugerido | Prioridad | Uso |
+| Componente | Producción | Por qué |
 |---|---|---|
-| `combo/planner` | alta calidad → económico | plan corto y JSON |
-| `combo/coding` | modelo de código principal → fallback | backend y refactors |
-| `combo/fast` | barato/rápido → fallback | tests, docs y clasificación |
-| `combo/vision` | modelo multimodal → fallback | diseñador visual |
+| `telegram-control` | Docker | No interpreta lenguaje libre, no monta el repositorio ni recibe claves de GitHub. |
+| LiteLLM | Docker | Endpoint OpenAI compatible, aliases por rol y una sola política de proveedores. |
+| Runner | `systemd --user` en el host | Conserva los worktrees y aplica el sandbox de Codex. |
+| GitHub App | GitHub | Token de instalación breve, limitado al repositorio, sin PAT persistente. |
+| Secretos | `${AI_SECRETS_DIR}` | Un archivo por secreto, permisos `600`, montado como Docker Secrets. |
+| Ollama | perfil Docker opcional | Solo tareas manuales locales; no fallback automático de cambios de código. |
 
-Cada combo debe contener solamente conexiones comprobadas. Podés conectar
-Codex, Claude, Gemini, OpenRouter, Kimi, DeepSeek u Ollama si el catálogo local
-los anuncia, pero una conexión visible no prueba que tenga saldo, permisos o
-tool-calling compatible. Usá `scripts/verificar-rutas-modelos.sh` antes de
-poner un alias en `.env`.
+No se usa Temporal aún. Una cola de archivos con bloqueo es más simple y ya
+resuelve un solo repositorio. Añádelo cuando haya varios runners, esperas largas
+o flujos que deban reanudarse tras caídas en pasos intermedios.
 
-No encadenes gateways externos en serie por defecto (por ejemplo, Codex →
-OmniRoute → OpenRouter → otro proxy). Agrega latencia, dificulta rastrear costo
-y mezcla políticas de datos. OmniRoute debe ser el único punto de routing; los
-demás son proveedores conectados dentro de él.
+## Preparación única
 
-## Dónde levantarlo localmente
+En la VM Ubuntu Server, cloná el repositorio y creá configuración no secreta:
 
-Para desarrollo, usá **Windows + WSL2 Ubuntu + Docker Desktop**. Cloná el
-repositorio dentro del filesystem Linux (`~/self-hosted-ai-devops`), no en
-`C:\`, porque los scripts, permisos y worktrees son Linux.
+```bash
+cp .env.example .env
+chmod 600 .env
+./scripts/preparar-entorno.sh
+./scripts/preparar-secretos.sh
+```
+
+Completa `.env` con la allowlist de Telegram, la ruta de la cola, el ID de la
+GitHub App y los aliases de modelos. Luego crea estos archivos con `chmod 600`:
 
 ```text
-Windows: Docker Desktop y editor
-WSL2 Ubuntu: Codex CLI, gh, gitleaks, runner y repositorios Git
-Docker Desktop: OmniRoute + OpenClaw + Ollama opcional
+${AI_SECRETS_DIR}/telegram_bot_token
+${AI_SECRETS_DIR}/github_app_private_key
+${AI_SECRETS_DIR}/litellm_master_key       # generado por preparar-secretos.sh
+${AI_SECRETS_DIR}/openai_api_key           # solo si usás OpenAI API
+${AI_SECRETS_DIR}/anthropic_api_key        # solo si usás Claude
+${AI_SECRETS_DIR}/openrouter_api_key       # solo si usás OpenRouter
 ```
 
-En local mantené siempre:
+Los archivos de proveedor no usados pueden existir vacíos para que Docker
+Compose resuelva los mounts; LiteLLM solo debe recibir rutas configuradas con
+una clave válida. Ajustá `infra/litellm/config.yaml` para que cada alias apunte
+a modelos y proveedores que realmente usás.
 
-```env
-AI_AUTONOMOUS_MODE=off
-AI_AGENT_CONCURRENCY=1
+## GitHub App
+
+Creá una GitHub App privada e instalala únicamente en el repositorio objetivo.
+Permisos mínimos: `Contents: Read and write`, `Issues: Read and write`,
+`Pull requests: Read and write` y `Metadata: Read-only`. Guardá su PEM como
+`github_app_private_key`; no ejecutes `gh auth login` ni guardes un PAT.
+
+En cada ejecución el runner firma un JWT corto y solicita un token de
+instalación. El token permanece solo en memoria como `GH_TOKEN` durante esa
+ejecución y no se entrega al proceso Codex aislado.
+
+## Local y servidor
+
+Para pruebas: WSL2 Ubuntu + Docker Desktop, `AI_AUTONOMOUS_MODE=off`, bot y
+repositorio de prueba. Docker Desktop se suspende con Windows, así que no es
+operación nocturna.
+
+Para producción: VM Ubuntu Server 24.04 en ESXi o mini-PC, 4 vCPU, 8 GB RAM y
+40 GB de disco como mínimo inicial. Docker, runner y repositorios viven en la
+misma VM; Tailscale da SSH privado. No expongas puertos ni uses Funnel para el
+runner o LiteLLM.
+
+## Arranque y comprobación
+
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+./scripts/instalar-config-codex.sh
+./scripts/instalar-runner.sh
+docker compose --env-file .env -f infra/docker-compose.yml ps
 ```
 
-Usá un bot de Telegram y un repositorio GitHub de pruebas distintos de los de
-producción. Docker Desktop se pausa al cerrar sesión o suspender el PC, por lo
-que el modo local sirve para validar configuración, no para operar de noche.
-
-## Dónde levantarlo como servidor
-
-Para operación continua, la mejor opción para esta arquitectura es una **VM
-Ubuntu Server 24.04 dedicada** en tu ESXi o en un mini-PC de casa: 4 vCPU, 8 GB
-de RAM y 40 GB de disco como punto inicial. Allí corren Docker, el runner de
-`systemd`, Codex CLI y los repositorios; Tailscale entrega acceso remoto sin
-abrir puertos en el router.
-
-```text
-VM Ubuntu Server
-├── Docker: OmniRoute, OpenClaw, Ollama/stage opcionales
-├── systemd --user: cola, control y reconciliación
-├── Codex CLI + worktrees: host, sandbox obligatorio
-├── /home/usuario/.env: permisos 600
-└── Tailscale: SSH y stage privados
-```
-
-No separaría OpenClaw y el runner en servidores distintos al inicio: obliga a
-exponer o sincronizar la cola, aumenta el manejo de secretos y no mejora la
-capacidad de un solo repositorio. Separalos solo cuando haya varios runners,
-repositorios o equipos.
-
-Un VPS es razonable si necesitás disponibilidad fuera de casa, pero no es mi
-primera elección para repositorios privados: requeriría cifrado de backups,
-disco, secretos, reglas de egreso y una tailnet bien administrada. La VM local
-detrás de Tailscale mantiene los worktrees y las credenciales bajo tu control.
-
-## Orden de activación
-
-1. Local: Docker Desktop y WSL2, con modo autónomo apagado.
-2. Conectar un proveedor y crear la clave local de OmniRoute.
-3. Crear y verificar aliases `combo/*`; dejar vacías las cadenas que no estén
-   probadas.
-4. Ejecutar el ciclo contra un issue y repositorio de prueba.
-5. Migrar la misma configuración a la VM dedicada.
-6. Verificar allowlist de Telegram desde otra cuenta, CI, sandbox y recuperación
-   tras reinicio.
-7. Solo entonces activar `AI_AUTONOMOUS_MODE=on`.
+Antes de activar autonomía, valida `/estado` desde una segunda cuenta no
+autorizada, crea un issue de prueba y verifica que solo aparece un PR borrador.
+El merge sigue requiriendo la confirmación humana de dos pasos.

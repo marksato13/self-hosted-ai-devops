@@ -13,7 +13,7 @@ estado_contenedor() {
   docker inspect --format '{{.Name}}: {{.State.Status}} ({{if .State.Health}}{{.State.Health.Status}}{{else}}sin healthcheck{{end}}).' "$nombre" 2>/dev/null | sed 's#^/##'
 }
 
-printf 'Automatización:\n'; estado_contenedor omniroute; estado_contenedor openclaw-gateway
+printf 'Automatización:\n'; estado_contenedor litellm; estado_contenedor telegram-control
 printf 'NinjaSec:\n'; estado_contenedor ninjasec-postgres; estado_contenedor ninjasec-backend; estado_contenedor ninjasec-frontend
 printf 'Herramientas host: node=%s npm=%s python=%s.\n' "$(node --version 2>/dev/null || echo ausente)" "$(npm --version 2>/dev/null || echo ausente)" "$(python3 --version 2>/dev/null | awk '{print $2}' || echo ausente)"
 if [[ -d "$PYMK/frontend" ]]; then

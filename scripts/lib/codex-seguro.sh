@@ -21,12 +21,12 @@ codex_sandbox() {
 }
 
 codex_ejecutar_aislado() {
-  : "${OMNIROUTE_API_KEY:?falta OMNIROUTE_API_KEY}"
+  : "${LITELLM_MASTER_KEY:?falta LITELLM_MASTER_KEY}"
   env -i \
     PATH="$PATH" \
     HOME="$HOME" \
     CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" \
     LANG="${LANG:-C.UTF-8}" \
-    OMNIROUTE_API_KEY="$OMNIROUTE_API_KEY" \
+    LITELLM_MASTER_KEY="$LITELLM_MASTER_KEY" \
     codex "$@"
 }

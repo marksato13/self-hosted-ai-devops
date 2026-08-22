@@ -1,5 +1,9 @@
 # Plan de ejecución
 
+> **Histórico (v1):** estas tareas hacen referencia a OmniRoute y OpenClaw.
+> Para una instalación nueva seguí [despliegue.md](despliegue.md); este plan
+> se conserva como registro de la primera implementación.
+
 Instrucciones atómicas para implementar el proyecto. Escritas para que un agente (Codex CLI) las ejecute una por una, sin interpretar.
 
 La versión narrativa, con explicaciones y contexto, está en [instalacion.md](instalacion.md). **Este documento no explica: ordena.**

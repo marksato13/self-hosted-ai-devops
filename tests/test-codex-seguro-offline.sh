@@ -43,10 +43,10 @@ afirmar_no_archivo "$FAKE_LOG_DIR/gh.args"
 unset FAKE_UNSHARE_RC
 
 echo "Caso: Codex no hereda credenciales ajenas"
-export OMNIROUTE_API_KEY=clave-para-el-gateway
+export LITELLM_MASTER_KEY=clave-para-el-gateway
 export GITHUB_TOKEN=token-github TELEGRAM_BOT_TOKEN=token-telegram OPENCLAW_GATEWAY_TOKEN=token-openclaw
 codex_ejecutar_aislado exec -p backend </dev/null
-afirmar_contiene "$BIN/codex.env" 'OMNIROUTE_API_KEY=clave-para-el-gateway'
+afirmar_contiene "$BIN/codex.env" 'LITELLM_MASTER_KEY=clave-para-el-gateway'
 afirmar_no_contiene "$BIN/codex.env" 'GITHUB_TOKEN='
 afirmar_no_contiene "$BIN/codex.env" 'TELEGRAM_BOT_TOKEN='
 afirmar_no_contiene "$BIN/codex.env" 'OPENCLAW_GATEWAY_TOKEN='

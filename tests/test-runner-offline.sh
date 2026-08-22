@@ -13,7 +13,7 @@ crear_runner_aislado() {
   mkdir -p "$RUNNER/scripts/lib"
   cp "$REPO_ROOT/scripts/procesar-cola.sh" "$REPO_ROOT/scripts/control-runner.sh" \
     "$REPO_ROOT/scripts/encolar-siguiente.sh" "$RUNNER/scripts/"
-  cp "$REPO_ROOT/scripts/lib/estado.sh" "$RUNNER/scripts/lib/"
+  cp "$REPO_ROOT/scripts/lib/estado.sh" "$REPO_ROOT/scripts/lib/github-app.sh" "$REPO_ROOT/scripts/lib/secretos.sh" "$RUNNER/scripts/lib/"
 cat >"$RUNNER/scripts/ejecutar-issue.sh" <<'EOF'
 #!/usr/bin/env bash
 set -eu

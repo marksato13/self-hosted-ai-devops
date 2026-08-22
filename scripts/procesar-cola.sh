@@ -8,6 +8,8 @@ set -a
 set +a
 # shellcheck source=scripts/lib/estado.sh
 source "$REPO_RAIZ/scripts/lib/estado.sh"
+# shellcheck source=scripts/lib/github-app.sh
+source "$REPO_RAIZ/scripts/lib/github-app.sh"
 
 QUEUE="${AI_QUEUE_DIR:-$HOME/.local/state/ai-devops/queue}"
 AI_STATE_DIR="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}"
@@ -25,6 +27,7 @@ reconciliar_ci() {
   command -v gh >/dev/null 2>&1 || return 0
   command -v jq >/dev/null 2>&1 || return 0
   [[ -n "${GITHUB_OWNER:-}" && -n "${GITHUB_REPO:-}" ]] || return 0
+  github_configurar_token || return 0
   shopt -s nullglob
   for archivo in "$AI_STATE_DIR"/issues/*/state.json; do
     estado="$(jq -r '.estado // empty' "$archivo" 2>/dev/null || true)"

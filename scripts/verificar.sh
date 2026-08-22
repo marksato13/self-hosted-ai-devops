@@ -89,42 +89,30 @@ fase4() {
 }
 
 fase5() {
-  echo "── FASE 5 · OmniRoute ──"
+  echo "── FASE 5 · LiteLLM y secretos ──"
   chk T014 "Repositorio clonado"           'test -f "$HOME/self-hosted-ai-devops/infra/docker-compose.yml"'
   chk T015 "Permisos 600 en .env"          '[[ "$(stat -c %a "$ENV_FILE")" == "600" ]]'
-  for k in OMNIROUTE_JWT_SECRET OMNIROUTE_API_KEY_SECRET OMNIROUTE_STORAGE_ENCRYPTION_KEY OMNIROUTE_INITIAL_PASSWORD; do
-    chk T016 "Secreto local: $k"           "[[ -n \"\${$k:-}\" ]]"
-  done
-  chk T017 "Sin claves comerciales en .env" '! grep -qE "^(OPENAI|DEEPSEEK|DASHSCOPE|ZHIPU|MOONSHOT)_API_KEY=" "$ENV_FILE"'
-  chk T018 "Gateway responde"              'curl -fsS http://localhost:20128/api/monitoring/health'
-  chk T019 "Catálogo auto disponible"      'curl -fsS http://localhost:20128/v1/models | jq -e ".data[] | select(.id == \"auto/coding\")"'
-  chk T019 "Ruta gratuita responde"        'curl -fsS --max-time 90 http://localhost:20128/v1/chat/completions \
-    -H "Authorization: Bearer ${OMNIROUTE_API_KEY:-}" -H "Content-Type: application/json" \
-    -d "{\"model\":\"auto/coding:free\",\"messages\":[{\"role\":\"user\",\"content\":\"Responde solamente OK\"}],\"max_tokens\":16}" \
-    | grep -q "content.*OK"'
-  manual T020 "Codex OAuth y proveedor gratuito conectados"
+  chk T016 "Directorio de secretos privado" '[[ -d "${AI_SECRETS_DIR:-}" && "$(stat -c %a "$AI_SECRETS_DIR")" == "700" ]]'
+  chk T016 "Clave maestra de LiteLLM presente" '[[ -f "${AI_SECRETS_DIR}/litellm_master_key" && "$(stat -c %a "${AI_SECRETS_DIR}/litellm_master_key")" == "600" ]]'
+  chk T017 "Sin secretos en .env"          '! grep -qE "(_TOKEN|_KEY)=[^[:space:]]+" "$ENV_FILE"'
+  chk T018 "LiteLLM responde"              'curl -fsS http://localhost:${LITELLM_PORT:-4000}/health/liveliness'
+  manual T020 "Proveedor de modelos y aliases comprobados"
 }
 
 fase6() {
   echo "── FASE 6 · Telegram ──"
   manual T021 "Bot creado en BotFather"
   manual T022 "chat_id obtenido"
-  chk T023 "Token de Telegram en .env"     '[[ "${TELEGRAM_BOT_TOKEN:-}" == *:* ]]'
+  chk T023 "Token de Telegram en secreto"  '[[ -f "${AI_SECRETS_DIR}/telegram_bot_token" ]]'
   chk T023 "Allowlist de chat_id definida" '[[ "${TELEGRAM_ALLOWED_CHAT_IDS:-}" =~ ^[0-9] ]]'
 }
 
 fase7() {
-  echo "── FASE 7 · OpenClaw ──"
-  chk T024 "OPENCLAW_IMAGE definida"       '[[ -n "${OPENCLAW_IMAGE:-}" ]]'
-  chk T025 "Contenedor OmniRoute arriba"   'docker ps --format "{{.Names}}" | grep -qx omniroute'
-  chk T025 "Contenedor openclaw arriba"    'docker ps --format "{{.Names}}" | grep -qx openclaw-gateway'
-  chk T025 "Configuración OpenClaw válida" 'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" run --rm -T --entrypoint node openclaw-gateway dist/index.js config validate'
-  chk T025 "Telegram usa allowlist cerrada" 'jq -e '\''(.gateway.mode == "local") and (.channels.telegram.enabled == true) and (.channels.telegram.dmPolicy == "allowlist") and (.channels.telegram.allowFrom | length > 0) and (.channels.telegram.groupPolicy == "disabled")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
-  chk T025 "Modelo usa OmniRoute local"      'jq -e '\''(.models.providers.omniroute.baseUrl == "http://omniroute:20128/v1") and (.agents.defaults.model.primary == "omniroute/oc/big-pickle")'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
-  chk T025 "Herramientas denegadas por defecto" 'jq -e '\''(.tools.allow | type == "array") and (.tools.allow | length == 0)'\'' "${OPENCLAW_CONFIG_DIR}/openclaw.json"'
-  chk T025 "Plugin de control determinista cargado" 'docker exec openclaw-gateway node dist/index.js plugins inspect flota-control --runtime --json | jq -e '\''.plugin.status == "loaded" and (["aprobar","aprobar_todo","confirmar","flota","rechazar","a","c","todo","estado","sig","pausa","seguir","i","error"] - .commands | length == 0)'\'''
-  chk T025 "Identidad Nexo instalada"       'grep -q "Name:.*Nexo" "${OPENCLAW_CONFIG_DIR}/workspace/IDENTITY.md" && test ! -f "${OPENCLAW_CONFIG_DIR}/workspace/BOOTSTRAP.md"'
-  chk T025 "Gateway responde saludable"    'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" exec -T openclaw-gateway node dist/index.js gateway health'
+  echo "── FASE 7 · Bot de control ──"
+  chk T024 "Compose válido"                'docker compose --env-file "$ENV_FILE" -f "$REPO_PLATAFORMA/infra/docker-compose.yml" config -q'
+  chk T025 "Contenedor LiteLLM arriba"     'docker ps --format "{{.Names}}" | grep -qx litellm'
+  chk T025 "Bot de control arriba"         'docker ps --format "{{.Names}}" | grep -qx telegram-control'
+  chk T025 "Bot sin filesystem escribible" 'docker inspect telegram-control --format "{{.HostConfig.ReadonlyRootfs}}" | grep -qx true'
   manual T026 "El bot responde a tu cuenta"
   manual T027 "🔴 El bot IGNORA a otra cuenta"
 }
@@ -134,8 +122,8 @@ fase8() {
   chk T028 "Codex instalado"               'codex --version'
   chk T029 "config.toml presente"          'test -f "$HOME/.codex/config.toml"'
   chk T029 "wire_api = responses"          'grep -q "wire_api = \"responses\"" "$HOME/.codex/config.toml"'
-  chk T029 "Apunta al gateway local"       'grep -q "localhost:20128" "$HOME/.codex/config.toml"'
-  chk T030 "Clave local de OmniRoute"      '[[ -n "${OMNIROUTE_API_KEY:-}" ]]'
+  chk T029 "Apunta al gateway local"       'grep -q "localhost:4000" "$HOME/.codex/config.toml"'
+  chk T030 "Clave local de LiteLLM"        '[[ -f "${AI_SECRETS_DIR}/litellm_master_key" ]]'
   for p in planner backend tester docs reviewer; do
     chk T031 "Perfil definido: $p"         "test -f \"\$HOME/.codex/$p.config.toml\""
   done
@@ -143,8 +131,8 @@ fase8() {
 
 fase9() {
   echo "── FASE 9 · GitHub y guardarraíles ──"
-  chk T032 "Credencial de GitHub disponible" '[[ -n "${GITHUB_TOKEN:-}" ]] || gh auth status'
-  chk T033 "gh autenticado"                'gh auth status'
+  chk T032 "PEM de GitHub App disponible"  '[[ -f "${AI_SECRETS_DIR}/github_app_private_key" ]]'
+  chk T033 "GitHub App configurada"        '[[ "${GITHUB_APP_ID:-}" =~ ^[1-9][0-9]*$ ]]'
   # Hardcodeado a propósito: $GITHUB_OWNER/$GITHUB_REPO identifican el
   # repositorio objetivo del runner (p. ej. ninjasec-platform), no esta
   # plataforma. T034 protege siempre la rama main de este repositorio.
@@ -180,7 +168,7 @@ fase11() {
   chk T053 "Línea base fijada"             'test -d "${ARTEFACTOS_DIR:-/nada}/base"'
   chk T054 "El comparador detecta cambios" 'test -d "${ARTEFACTOS_DIR:-/nada}/cambiado/diff"'
   manual T055 "Imagen recibida en Telegram"
-  chk T056 "WHATSAPP_MODO definido"        '[[ "${WHATSAPP_MODO:-}" =~ ^(off|cloud|openclaw)$ ]]'
+  chk T056 "WHATSAPP_MODO definido"        '[[ "${WHATSAPP_MODO:-}" =~ ^(off|cloud)$ ]]'
   chk T057 "Perfil designer definido"      'test -f "$HOME/.codex/designer.config.toml"'
   chk T057 "Designer exige multimodal gratis" 'grep -q "auto/multimodal:free" "$HOME/.codex/designer.config.toml"'
   manual T057 "🔴 El modelo LEE la imagen (no solo responde)"
