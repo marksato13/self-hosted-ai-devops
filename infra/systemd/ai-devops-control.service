@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=%h/self-hosted-ai-devops
 Environment="PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="AI_SECRETS_DIR=%h/.config/ai-devops/secrets"
 ExecStart=%h/self-hosted-ai-devops/scripts/procesar-control.sh
 Nice=5
 NoNewPrivileges=true

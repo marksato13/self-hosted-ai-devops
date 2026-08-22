@@ -1,5 +1,9 @@
 # OmniRoute: modelos gratuitos y Codex por suscripción
 
+> **Componente retirado de producción:** este documento describe la primera
+> versión de la flota. La configuración actual usa LiteLLM; ver
+> [despliegue.md](despliegue.md).
+
 OmniRoute es el gateway de modelos de esta plataforma. Se ejecuta en Docker,
 expone una API compatible con OpenAI y decide qué proveedor disponible atiende
 cada petición. Sustituye a LiteLLM y a las claves comerciales individuales.

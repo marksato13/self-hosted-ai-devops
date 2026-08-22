@@ -16,6 +16,8 @@ source "$REPO_RAIZ/scripts/lib/estado.sh"
 source "$REPO_RAIZ/scripts/lib/codex-seguro.sh"
 # shellcheck source=scripts/lib/rutas-modelos.sh
 source "$REPO_RAIZ/scripts/lib/rutas-modelos.sh"
+# shellcheck source=scripts/lib/secretos.sh
+source "$REPO_RAIZ/scripts/lib/secretos.sh"
 
 command -v codex >/dev/null || { echo "Falta codex." >&2; exit 69; }
 command -v gh >/dev/null || { echo "Falta gh." >&2; exit 69; }
@@ -25,6 +27,10 @@ SANDBOX_WORKSPACE="$(codex_sandbox workspace-write)" || exit $?
 
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
+secreto_cargar LITELLM_MASTER_KEY litellm_master_key || exit $?
+# shellcheck source=scripts/lib/github-app.sh
+source "$REPO_RAIZ/scripts/lib/github-app.sh"
+github_configurar_token || exit $?
 TARGET_REPO="${AI_TARGET_REPO_DIR:-$HOME/workspace/$REPO}"
 TIMEOUT="${TASK_TIMEOUT_MINUTES:-30}m"
 ESTADO="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}/issues/$ISSUE"
@@ -68,8 +74,7 @@ PROMPT_PLAN="$ESTADO/prompt-plan.txt"
 if [[ -n "${CODEX_PLANNER_MODELS:-}" ]]; then
   cargar_rutas_modelos "$CODEX_PLANNER_MODELS" PLANNER_MODELS || exit $?
 else
-  PLANNER_MODEL="${CODEX_PLANNER_MODEL:-oc/big-pickle}"
-  PLANNER_MODELS=("$PLANNER_MODEL" "${CODEX_PLANNER_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_PLANNER_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}")
+  PLANNER_MODELS=("${CODEX_PLANNER_MODEL:-planner}" "${CODEX_PLANNER_FALLBACK_MODEL:-coding}")
 fi
 planner_ok=0
 planner_rate_limited=0
@@ -188,17 +193,17 @@ for agente in "${AGENTES[@]}"; do
   case "$agente" in
     backend)
       if [[ -n "${CODEX_BACKEND_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_BACKEND_MODELS" modelos_agente || exit $?;
-      else modelos_agente=("${CODEX_BACKEND_MODEL:-oc/big-pickle}" "${CODEX_BACKEND_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_BACKEND_LAST_RESORT_MODEL:-cx/gpt-5.6-sol}"); fi
+      else modelos_agente=("${CODEX_BACKEND_MODEL:-coding}" "${CODEX_BACKEND_FALLBACK_MODEL:-fast}"); fi
       ;;
     tests)
       if [[ -n "${CODEX_TESTS_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_TESTS_MODELS" modelos_agente || exit $?;
-      else modelos_agente=("${CODEX_TESTS_MODEL:-oc/big-pickle}" "${CODEX_TESTS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_TESTS_LAST_RESORT_MODEL:-cx/gpt-5.6-terra}"); fi
+      else modelos_agente=("${CODEX_TESTS_MODEL:-fast}" "${CODEX_TESTS_FALLBACK_MODEL:-coding}"); fi
       ;;
     docs)
       if [[ -n "${CODEX_DOCS_MODELS:-}" ]]; then cargar_rutas_modelos "$CODEX_DOCS_MODELS" modelos_agente || exit $?;
-      else modelos_agente=("${CODEX_DOCS_MODEL:-oc/big-pickle}" "${CODEX_DOCS_FALLBACK_MODEL:-oc/deepseek-v4-flash-free}" "${CODEX_DOCS_LAST_RESORT_MODEL:-cx/gpt-5.5}"); fi
+      else modelos_agente=("${CODEX_DOCS_MODEL:-fast}" "${CODEX_DOCS_FALLBACK_MODEL:-coding}"); fi
       ;;
-    *) modelos_agente=("${CODEX_AGENT_MODEL:-oc/big-pickle}" "oc/deepseek-v4-flash-free" "cx/gpt-5.6-terra") ;;
+    *) modelos_agente=("${CODEX_AGENT_MODEL:-coding}" "fast") ;;
   esac
   if (( AGENT_PARALLELISM == 1 )); then
     ejecutar_agente "$agente" "$perfil" "$wt" "${modelos_agente[@]}" || pids+=("failed:$agente")

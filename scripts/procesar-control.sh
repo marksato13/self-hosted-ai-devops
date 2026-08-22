@@ -20,6 +20,9 @@ ESTADO="${AI_STATE_DIR:-$HOME/.local/state/ai-devops}"
 APROBACIONES="$ESTADO/aprobaciones"
 OWNER="${GITHUB_OWNER:?falta GITHUB_OWNER}"
 REPO="${GITHUB_REPO:?falta GITHUB_REPO}"
+# shellcheck source=scripts/lib/github-app.sh
+source "$REPO_RAIZ/scripts/lib/github-app.sh"
+github_configurar_token
 TTL="${APPROVAL_TTL_MINUTES:-10}"
 [[ "$TTL" =~ ^[1-9][0-9]{0,2}$ ]] || { echo "APPROVAL_TTL_MINUTES inválido." >&2; exit 65; }
 mkdir -p "$CONTROL/completadas" "$CONTROL/fallidas" "$APROBACIONES"

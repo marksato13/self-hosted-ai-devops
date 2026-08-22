@@ -1,4 +1,4 @@
-model = "auto/coding"
-model_provider = "omniroute"
+model = "coding"
+model_provider = "litellm"
 approval_policy = "never"
 sandbox_mode = "workspace-write"

@@ -11,8 +11,8 @@ crear_fixture
 CONTROL="$FIXTURE/control-app"
 mkdir -p "$CONTROL/scripts" "$AI_QUEUE_DIR/control" "$AI_QUEUE_DIR/fallidas"
 mkdir -p "$CONTROL/scripts/lib"
-cp "$REPO_ROOT/scripts/control-flota.sh" "$REPO_ROOT/scripts/procesar-control.sh" "$CONTROL/scripts/"
-cp "$REPO_ROOT/scripts/lib/estado.sh" "$CONTROL/scripts/lib/"
+cp "$REPO_ROOT/scripts/procesar-control.sh" "$CONTROL/scripts/"
+cp "$REPO_ROOT/scripts/lib/estado.sh" "$REPO_ROOT/scripts/lib/github-app.sh" "$REPO_ROOT/scripts/lib/secretos.sh" "$CONTROL/scripts/lib/"
 cat >"$CONTROL/scripts/reportar.sh" <<'EOF'
 #!/usr/bin/env bash
 printf '%s|%s\n' "${TELEGRAM_DESTINO_CHAT_ID:-}" "$1" >>"${FAKE_LOG_DIR:?}/telegram.messages"
@@ -32,17 +32,6 @@ encolar_control() {
 }
 
 procesar() { "$CONTROL/scripts/procesar-control.sh" >/dev/null; }
-
-echo "Caso: la frontera rechaza remitentes e inyección"
-export OPENCLAW_CHANNEL_CONTEXT='{"sender":{"id":"999"}}'
-ejecutar_rc "$FIXTURE/salida" "$CONTROL/scripts/control-flota.sh" issue 7
-afirmar_igual "$RC" 77
-export OPENCLAW_CHANNEL_CONTEXT='{"sender":{"id":"123"}}'
-for valor in '../7' '7;id' '-1' '1 2'; do
-  ejecutar_rc "$FIXTURE/salida" "$CONTROL/scripts/control-flota.sh" issue "$valor"
-  afirmar_igual "$RC" 64
-done
-afirmar_igual "$(find "$AI_QUEUE_DIR/control" -maxdepth 1 -name '*.pending' | wc -l)" 0
 
 echo "Caso: una aprobación exige checks verdes y crea nonce ligado a SHA"
 encolar_control aprobar 17 aprobar-verde

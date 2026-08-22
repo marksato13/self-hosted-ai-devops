@@ -9,17 +9,19 @@ trap limpiar_fixture EXIT
 crear_fixture
 
 APP="$FIXTURE/app"
-mkdir -p "$APP/scripts"
+mkdir -p "$APP/scripts/lib" "$APP/secrets"
 cp "$REPO_ROOT/scripts/reportar.sh" "$APP/scripts/"
+cp "$REPO_ROOT/scripts/lib/secretos.sh" "$APP/scripts/lib/"
 git -C "$APP" init -q
 printf '%s\n' \
-  'TELEGRAM_BOT_TOKEN=TOKEN-SECRETO' \
   'TELEGRAM_ALLOWED_CHAT_IDS=123' \
   'WHATSAPP_MODO=off' >"$APP/.env"
 chmod 600 "$APP/.env"
+printf '%s\n' 'TOKEN-SECRETO' >"$APP/secrets/telegram_bot_token"
+chmod 600 "$APP/secrets/telegram_bot_token"
 
 reportar_desde_app() {
-  (cd "$APP" && ENV_FILE="$APP/.env" "$APP/scripts/reportar.sh" "$@")
+  (cd "$APP" && ENV_FILE="$APP/.env" AI_SECRETS_DIR="$APP/secrets" "$APP/scripts/reportar.sh" "$@")
 }
 
 echo "Caso: Telegram 401 se informa como fallo sin filtrar el token"

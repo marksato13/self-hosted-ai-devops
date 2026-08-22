@@ -21,7 +21,9 @@ if (( ${#rutas[@]} == 0 )); then
 fi
 command -v curl >/dev/null || { echo "Falta curl." >&2; exit 69; }
 command -v jq >/dev/null || { echo "Falta jq." >&2; exit 69; }
-[[ -n "${OMNIROUTE_API_KEY:-}" ]] || { echo "Falta OMNIROUTE_API_KEY." >&2; exit 78; }
+# shellcheck source=scripts/lib/secretos.sh
+source "$REPO_RAIZ/scripts/lib/secretos.sh"
+secreto_cargar LITELLM_MASTER_KEY litellm_master_key || exit $?
 
 for ruta in "${rutas[@]}"; do
   [[ "$ruta" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]*$ ]] || {
@@ -30,12 +32,12 @@ for ruta in "${rutas[@]}"; do
   }
 done
 
-puerto="${OMNIROUTE_PORT:-20128}"
-[[ "$puerto" =~ ^[1-9][0-9]{0,4}$ ]] || { echo "OMNIROUTE_PORT inválido." >&2; exit 64; }
+puerto="${LITELLM_PORT:-4000}"
+[[ "$puerto" =~ ^[1-9][0-9]{0,4}$ ]] || { echo "LITELLM_PORT inválido." >&2; exit 64; }
 catalogo="$(mktemp)"
 trap 'rm -f -- "$catalogo"' EXIT
 curl -fsS --max-time "${OMNIROUTE_MODELS_TIMEOUT_SECONDS:-15}" \
-  -H "Authorization: Bearer $OMNIROUTE_API_KEY" \
+  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   "http://127.0.0.1:${puerto}/v1/models" >"$catalogo"
 
 faltan=0
